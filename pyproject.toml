@@ -1,0 +1,39 @@
+[project]
+name = "rag-chatbot"
+version = "1.0.0"
+description = "Company RAG Chatbot with FastAPI, LangChain ReAct Agent, LanceDB Hybrid Search, and CrispEmbed"
+readme = "PROGRESS.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.146.0",
+    "uvicorn[standard]>=0.54.0",
+    "lancedb>=0.40.0",
+    "pyarrow>=26.0.0",
+    "tantivy>=0.26.2",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.3.0",
+    "langchain-text-splitters>=0.3.0",
+    "openai>=3.35.1",
+    "httpx>=0.28.1",
+    "beautifulsoup4>=4.15.0",
+    "pypdf>=6.21.1",
+    "python-multipart>=0.0.32",
+    "pydantic>=2.14.1",
+    "cryptography>=50.0.2",
+    "numpy>=2.5.4",
+    "crispembed",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.uv.sources]
+crispembed = { path = "vendor/crispembed", editable = true }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"

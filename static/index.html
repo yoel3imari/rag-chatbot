@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG Assistant</title>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          borderRadius: {
+            none: '0px',
+            DEFAULT: '0px',
+          }
+        }
+      }
+    };
+  </script>
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <script src="/static/app.js"></script>
+  <style>
+    * {
+      border-radius: 0px !important;
+      box-sizing: border-box;
+    }
+    [x-cloak] {
+      display: none !important;
+    }
+    /* Brutalist 0px Monochrome Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #000000;
+      border-left: 1px solid #222222;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #444444;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #FFFFFF;
+    }
+    /* Strict High-Contrast Light Mode Inversion */
+    body.theme-light {
+      filter: invert(1) hue-rotate(180deg);
+      background-color: #FFFFFF;
+    }
+    /* Sharp Range Slider */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #222222;
+      height: 4px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #FFFFFF;
+      border: 1px solid #000000;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body
+  x-data="ragApp()"
+  x-init="init()"
+  :class="settings.theme === 'light' ? 'theme-light' : ''"
+  class="w-screen h-screen overflow-hidden bg-[#000000] text-[#FFFFFF] font-sans text-[15px] antialiased select-text flex"
+>
+  <!-- Hidden File Inputs -->
+  <input
+    id="chat-file-input"
+    type="file"
+    accept=".pdf,.txt,.md,.markdown"
+    multiple
+    class="hidden"
+    @change="handleFileInputChange($event, inlineIngestScope)"
+  />
+  <input
+    id="settings-file-input"
+    type="file"
+    accept=".pdf,.txt,.md,.markdown"
+    multiple
+    class="hidden"
+    @change="handleFileInputChange($event, 'global')"
+  />
+
+  <!-- ========================================================= -->
+  <!-- A. LEFT SIDEBAR (272px fixed, 1px solid #222222)          -->
+  <!-- ========================================================= -->
+  <aside class="w-[272px] shrink-0 h-full bg-[#000000] border-r border-[#222222] flex flex-col select-none">
+    <!-- 1. Header Area: New Chat Button -->
+    <div class="p-3.5 border-b border-[#222222]">
+      <button
+        @click="createNewSession()"
+        class="w-full h-[44px] border border-[#FFFFFF] bg-[#000000] text-[#FFFFFF] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-100 flex items-center justify-center gap-2.5 text-sm font-mono uppercase tracking-wider font-medium"
+      >
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        <span>New Chat</span>
+      </button>
+    </div>
+
+    <!-- 2. Session List (Scrollable flex-1) -->
+    <div class="flex-1 overflow-y-auto divide-y divide-[#141414]">
+      <template x-for="sess in sessions" :key="sess.id">
+        <div
+          @click="selectSession(sess.id)"
+          @mouseleave="disarmSessionDelete(sess.id)"
+          :class="currentSessionId === sess.id ? 'bg-[#141414] border-l-2 border-l-[#FFFFFF]' : 'bg-[#000000] hover:bg-[#0A0A0A]'"
+          class="group h-[44px] px-3.5 flex items-center justify-between cursor-pointer transition-colors"
+        >
+          <div class="flex items-center gap-2 min-w-0 flex-1 pr-2">
+            <span
+              class="text-sm truncate"
+              :class="currentSessionId === sess.id ? 'text-[#FFFFFF] font-medium' : 'text-[#999999] group-hover:text-[#FFFFFF]'"
+              x-text="sess.title"
+            ></span>
+          </div>
+
+          <!-- Two-Step Delete Interaction -->
+          <button
+            @click.stop="handleSessionDeleteClick(sess.id)"
+            :class="armedSessionDelete === sess.id
+              ? 'opacity-100 border border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] px-2 py-0.5 text-xs font-mono font-semibold'
+              : 'opacity-0 group-hover:opacity-100 text-[#888888] hover:text-[#FFFFFF] p-1.5'"
+            class="shrink-0 transition-opacity font-mono flex items-center justify-center"
+            :title="armedSessionDelete === sess.id ? 'Click again to confirm deletion' : 'Delete session'"
+          >
+            <svg x-show="armedSessionDelete !== sess.id" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M8 6V4h8v2m-9 0v14h10V6" />
+            </svg>
+            <span x-show="armedSessionDelete === sess.id" x-cloak>CONFIRM?</span>
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <!-- 3. Footer Area: Settings Trigger -->
+    <div class="border-t border-[#222222]">
+      <button
+        @click="settingsOpen = true"
+        class="w-full h-[50px] px-4 bg-[#000000] hover:bg-[#141414] text-[#FFFFFF] flex items-center gap-3 text-sm font-mono uppercase tracking-wider transition-colors"
+      >
+        <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" stroke-linejoin="miter">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+        <span>Settings</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ========================================================= -->
+  <!-- B. MAIN CHAT VIEWPORT (flex-1 relative flex flex-col)     -->
+  <!-- ========================================================= -->
+  <main class="flex-1 relative flex flex-col h-full bg-[#000000] overflow-hidden">
+    <!-- Top Header Bar: Model Info + Token Budget Indicator -->
+    <header class="h-[48px] shrink-0 border-b border-[#222222] bg-[#0A0A0A] px-5 flex items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="font-mono text-sm text-[#FFFFFF] font-medium truncate" x-text="currentSession?.title || 'New Session'"></span>
+        <span class="text-[#444444]">/</span>
+        <button
+          @click="settingsOpen = true; activeSettingsTab = 'llm'"
+          class="font-mono text-xs px-2.5 py-1 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] text-[#888888] hover:text-[#FFFFFF] flex items-center gap-1.5"
+        >
+          <span class="uppercase" x-text="settings.provider"></span>
+          <span>:</span>
+          <span class="text-[#FFFFFF]" x-text="settings.model"></span>
+          <span
+            class="w-2 h-2 inline-block"
+            :class="settings.has_api_key || ['ollama','lmstudio','custom'].includes(settings.provider) ? 'bg-[#FFFFFF]' : 'border border-[#888888]'"
+            :title="settings.has_api_key ? 'API Key Configured' : 'No API Key Set (Click to configure)'"
+          ></span>
+        </button>
+      </div>
+
+      <!-- Intra-Session Token Budget Indicator -->
+      <div class="flex items-center gap-3">
+        <template x-if="rateLimitCountdown > 0">
+          <div class="px-2.5 py-1 border border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] font-mono text-xs uppercase">
+            RETRY IN <span x-text="rateLimitCountdown"></span>S
+          </div>
+        </template>
+        <div class="flex items-center gap-2.5">
+          <span
+            class="font-mono text-xs"
+            :class="tokenStats.exceedsHardLimit ? 'bg-[#FFFFFF] text-[#000000] px-1.5 py-0.5 font-semibold' : 'text-[#888888]'"
+            x-text="formattedTokenCounter"
+          ></span>
+          <div class="w-24 h-2 border border-[#333333] bg-[#000000] overflow-hidden">
+            <div
+              class="h-full bg-[#FFFFFF] transition-all duration-150"
+              :style="`width: ${tokenUsagePercent}%`"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Live SSE Ingestion Progress Badges / Toasts (Top-Right Floating) -->
+    <div
+      x-show="ingestToasts.length > 0"
+      x-cloak
+      class="absolute top-14 right-5 z-30 w-80 space-y-2 pointer-events-auto"
+    >
+      <template x-for="toast in ingestToasts" :key="toast.id">
+        <div class="border border-[#FFFFFF] bg-[#0A0A0A] p-3.5 shadow-2xl">
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <span
+              class="font-mono text-xs px-1.5 py-0.5 uppercase font-semibold"
+              :class="toast.status === 'FAILED' ? 'border border-[#FFFFFF] text-[#FFFFFF]' : 'bg-[#FFFFFF] text-[#000000]'"
+              x-text="`[${toast.status}]`"
+            ></span>
+            <button @click="dismissToast(toast.id)" class="text-[#888888] hover:text-[#FFFFFF] font-mono text-sm px-1">×</button>
+          </div>
+          <div class="font-mono text-sm text-[#FFFFFF] truncate mb-1" x-text="toast.name"></div>
+          <div class="text-xs text-[#888888] mb-2" x-text="toast.message"></div>
+          <div class="w-full h-1.5 border border-[#333333] bg-[#000000]">
+            <div
+              class="h-full bg-[#FFFFFF] transition-all duration-200"
+              :style="`width: ${toast.progress || 0}%`"
+            ></div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- 1. Message Stream (flex-1 overflow-y-auto pb-52) -->
+    <div id="chat-message-stream" class="flex-1 overflow-y-auto pb-56 pt-6 px-6">
+      <div class="max-w-[820px] mx-auto space-y-5">
+
+        <!-- Collapsible [CONTEXT SUMMARY ACTIVE] Banner -->
+        <template x-if="currentSession && currentSession.summary">
+          <div class="border border-[#333333] bg-[#0A0A0A] p-4">
+            <div class="flex items-center justify-between">
+              <button
+                @click="summaryExpanded = !summaryExpanded"
+                class="flex items-center gap-2.5 font-mono text-xs text-[#FFFFFF] hover:underline"
+              >
+                <span class="px-2 py-0.5 bg-[#FFFFFF] text-[#000000] font-semibold">CONTEXT SUMMARY</span>
+                <span class="text-[#888888]" x-text="summaryExpanded ? 'HIDE ▲' : 'VIEW / EDIT ▼'"></span>
+              </button>
+            </div>
+            <div x-show="summaryExpanded" x-cloak class="mt-3 pt-3 border-t border-[#222222]">
+              <template x-if="!editingSummary">
+                <div>
+                  <p class="text-sm text-[#CCCCCC] leading-relaxed whitespace-pre-wrap" x-text="currentSession.summary"></p>
+                  <div class="mt-3 flex justify-end">
+                    <button
+                      @click="editingSummary = true; summaryDraft = currentSession.summary"
+                      class="px-3 py-1 border border-[#FFFFFF] text-xs font-mono uppercase hover:bg-[#FFFFFF] hover:text-[#000000]"
+                    >
+                      Edit Summary
+                    </button>
+                  </div>
+                </div>
+              </template>
+              <template x-if="editingSummary">
+                <div class="space-y-2.5">
+                  <textarea
+                    x-model="summaryDraft"
+                    rows="3"
+                    class="w-full bg-[#000000] border border-[#FFFFFF] p-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+                  ></textarea>
+                  <div class="flex justify-end gap-2">
+                    <button
+                      @click="editingSummary = false"
+                      class="px-3 py-1 border border-[#333333] text-xs font-mono text-[#888888] hover:text-[#FFFFFF]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      @click="saveEditedSummary()"
+                      class="px-3 py-1 bg-[#FFFFFF] text-[#000000] text-xs font-mono font-semibold"
+                    >
+                      Save Summary
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+
+        <!-- Virtualized History Load-More Banner -->
+        <template x-if="hiddenMessageCount > 0">
+          <div class="text-center py-2">
+            <button
+              @click="virtualLimit += 80"
+              class="px-4 py-1.5 border border-[#222222] bg-[#0A0A0A] hover:border-[#FFFFFF] font-mono text-xs text-[#888888] hover:text-[#FFFFFF]"
+              x-text="`Load ${hiddenMessageCount} earlier messages`"
+            ></button>
+          </div>
+        </template>
+
+        <!-- Empty State Welcome Card -->
+        <template x-if="messages.length === 0">
+          <div class="border border-[#222222] bg-[#0A0A0A] p-7 my-8">
+            <div class="border-b border-[#222222] pb-4 mb-5">
+              <h1 class="text-lg font-semibold text-[#FFFFFF]">How can I help you today?</h1>
+              <p class="text-sm text-[#888888] mt-1">Ask questions across your documents and web sources, or type <span class="font-mono text-[#FFFFFF]">@</span> to filter by a specific source.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-sm">
+              <button
+                @click="promptText = 'What is Acme Corp\'s remote work stipend and PTO policy?'; $nextTick(() => sendMessage())"
+                class="text-left p-4 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] transition-colors leading-relaxed text-[#EDEDED]"
+              >
+                What is Acme Corp's remote work stipend and PTO policy?
+              </button>
+              <button
+                @click="promptText = '@acme-handbook-2026.md What are the SEV-1 SLA and deployment freeze rules?'; targetDocs = ['acme-handbook-2026.md']; $nextTick(() => sendMessage())"
+                class="text-left p-4 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] transition-colors leading-relaxed text-[#EDEDED]"
+              >
+                @acme-handbook-2026.md What are the SEV-1 SLA rules?
+              </button>
+              <button
+                @click="promptText = 'Summarize our engineering deployment and incident response guidelines.'; $nextTick(() => sendMessage())"
+                class="text-left p-4 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] transition-colors leading-relaxed text-[#EDEDED]"
+              >
+                Summarize our engineering deployment and incident response guidelines.
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Message Blocks -->
+        <template x-for="msg in visibleMessages" :key="msg.id">
+          <div
+            :class="[
+              msg.role === 'user' ? 'border border-[#222222] bg-[#0A0A0A]' : 'border border-[#333333] bg-[#000000]',
+              msg.included_in_context === false ? 'opacity-45' : ''
+            ]"
+            class="group p-5 transition-opacity"
+          >
+            <!-- Message Header: Role Badge + Context Pruning Hover Toggle -->
+            <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-[#141414]">
+              <div class="flex items-center gap-2.5">
+                <span
+                  :class="msg.role === 'user' ? 'border border-[#FFFFFF] text-[#FFFFFF]' : 'bg-[#FFFFFF] text-[#000000] font-semibold'"
+                  class="font-mono text-xs px-2 py-0.5 uppercase tracking-wider"
+                  x-text="msg.role === 'user' ? 'USER' : 'ASSISTANT'"
+                ></span>
+                <template x-if="msg.included_in_context === false">
+                  <span class="font-mono text-xs px-2 py-0.5 border border-[#444444] text-[#888888]">EXCLUDED FROM CONTEXT</span>
+                </template>
+              </div>
+
+              <!-- Message-Level Context Pruning Toggle -->
+              <button
+                @click="toggleMessageContext(msg)"
+                class="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity font-mono text-xs px-2.5 py-0.5 border border-[#333333] hover:border-[#FFFFFF] text-[#888888] hover:text-[#FFFFFF]"
+                x-text="msg.included_in_context === false ? 'Include in Context' : 'Exclude from Context'"
+              ></button>
+            </div>
+
+            <!-- Reasoning & Tool Call Trace -->
+            <template x-if="msg.role === 'assistant' && msg.react_steps && msg.react_steps.length > 0">
+              <div class="mb-3.5 border border-[#222222] bg-[#0A0A0A]">
+                <button
+                  @click="msg.showTrace = !msg.showTrace"
+                  class="w-full px-3.5 py-2 flex items-center justify-between text-left font-mono text-xs text-[#888888] hover:text-[#FFFFFF]"
+                >
+                  <span class="flex items-center gap-2">
+                    <span class="text-[#FFFFFF]">▸ Reasoning</span>
+                    <span x-text="`(${msg.react_steps.length} steps)`"></span>
+                  </span>
+                  <span x-text="msg.showTrace ? 'Hide' : 'Show'"></span>
+                </button>
+                <div x-show="msg.showTrace" class="p-3 border-t border-[#141414] space-y-2 font-mono text-xs">
+                  <template x-for="(st, sIdx) in msg.react_steps" :key="sIdx">
+                    <div class="flex items-start gap-2.5 leading-relaxed">
+                      <span
+                        :class="st.step === 'ACTION' ? 'bg-[#FFFFFF] text-[#000000] font-semibold' : 'border border-[#333333] text-[#888888]'"
+                        class="px-1.5 py-0.5 text-[11px] shrink-0"
+                        x-text="st.step"
+                      ></span>
+                      <span class="text-[#CCCCCC] break-all" x-text="st.detail"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- Message Body -->
+            <div
+              class="text-[15px] leading-7 text-[#FFFFFF] break-words"
+              x-html="renderMarkdown(msg.content)"
+            ></div>
+            <template x-if="msg.isStreaming && !msg.content">
+              <div class="font-mono text-sm text-[#888888] animate-pulse">▍ Thinking...</div>
+            </template>
+
+            <!-- Citations -->
+            <template x-if="msg.citations && msg.citations.length > 0">
+              <div class="mt-4 pt-3.5 border-t border-[#222222]">
+                <div class="font-mono text-xs uppercase tracking-wider text-[#888888] mb-2.5">
+                  Sources (<span x-text="msg.citations.length"></span>)
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  <template x-for="cit in msg.citations" :key="`${cit.doc_id}_${cit.chunk_index}`">
+                    <div class="border border-[#222222] bg-[#0A0A0A] p-3 text-xs">
+                      <div class="font-mono text-xs text-[#FFFFFF] font-medium truncate mb-1" x-text="`[${cit.index}] ${cit.source_name}`"></div>
+                      <p class="text-xs text-[#888888] line-clamp-2 leading-relaxed" x-text="cit.preview"></p>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- 2. FLOATING PROMPT INPUT CONTAINER                        -->
+    <!-- ========================================================= -->
+    <div
+      @dragover.prevent="isDraggingOverPrompt = true"
+      @dragleave.prevent="isDraggingOverPrompt = false"
+      @drop.prevent="handlePromptDrop($event)"
+      class="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[820px] px-6 z-20"
+    >
+      <!-- @ Mention & /link-session Autocomplete Dropdown -->
+      <div
+        x-show="mentionOpen && mentionItems.length > 0"
+        x-cloak
+        class="mb-1.5 border border-[#FFFFFF] bg-[#000000] shadow-2xl max-h-60 overflow-y-auto"
+      >
+        <div class="px-3.5 py-2 border-b border-[#222222] bg-[#0A0A0A] flex items-center justify-between font-mono text-xs text-[#888888]">
+          <span>Filter by Document or Session</span>
+          <span>↑↓ Navigate · Enter Select</span>
+        </div>
+        <template x-for="(item, idx) in mentionItems" :key="`${item.kind}_${item.id}`">
+          <button
+            type="button"
+            @click="selectMentionItem(item)"
+            :class="idx === mentionSelectedIndex ? 'bg-[#FFFFFF] text-[#000000]' : 'bg-[#000000] text-[#FFFFFF] hover:bg-[#141414]'"
+            class="w-full px-3.5 py-2.5 flex items-center justify-between text-left font-mono text-sm border-b border-[#141414]"
+          >
+            <span class="truncate" x-text="item.label"></span>
+            <span
+              :class="idx === mentionSelectedIndex ? 'border-[#000000] text-[#000000]' : 'border-[#333333] text-[#888888]'"
+              class="text-xs px-2 py-0.5 border uppercase ml-2 shrink-0"
+              x-text="item.badge"
+            ></span>
+          </button>
+        </template>
+      </div>
+
+      <!-- Inline URL Ingestion Bar (Expandable from Prompt Bar) -->
+      <div
+        x-show="showInlineUrlInput"
+        x-cloak
+        class="mb-2 p-2.5 border border-[#FFFFFF] bg-[#0A0A0A] flex items-center gap-2.5"
+      >
+        <span class="font-mono text-xs text-[#888888] uppercase px-1">Add URL:</span>
+        <input
+          type="url"
+          x-model="inlineUrlValue"
+          @keydown.enter.prevent="submitInlineUrl()"
+          placeholder="https://example.com/docs"
+          class="flex-1 bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] px-3 py-1.5 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+        />
+        <button
+          type="button"
+          @click="inlineIngestScope = inlineIngestScope === 'session' ? 'global' : 'session'"
+          class="px-2.5 py-1.5 border border-[#333333] hover:border-[#FFFFFF] font-mono text-xs text-[#888888] hover:text-[#FFFFFF] uppercase"
+          x-text="`Scope: ${inlineIngestScope}`"
+          title="Toggle between Session-only and Global Knowledge Base"
+        ></button>
+        <button
+          type="button"
+          @click="submitInlineUrl()"
+          class="px-3.5 py-1.5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase"
+        >
+          Add
+        </button>
+        <button
+          type="button"
+          @click="showInlineUrlInput = false"
+          class="px-2 py-1 text-[#888888] hover:text-[#FFFFFF] font-mono text-base"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- Quick-Toggles & Targeted @Document Pills Bar -->
+      <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Cross-Session Scope Quick-Toggles -->
+          <button
+            type="button"
+            @click="useGlobalDocs = !useGlobalDocs"
+            :class="useGlobalDocs ? 'border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] font-semibold' : 'border-[#333333] bg-[#0A0A0A] text-[#888888]'"
+            class="px-2.5 py-1 border font-mono text-xs uppercase transition-colors"
+            x-text="useGlobalDocs ? 'Global Docs: ON' : 'Global Docs: OFF'"
+          ></button>
+          <button
+            type="button"
+            @click="useMemory = !useMemory; recalculateTokens()"
+            :class="useMemory ? 'border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] font-semibold' : 'border-[#333333] bg-[#0A0A0A] text-[#888888]'"
+            class="px-2.5 py-1 border font-mono text-xs uppercase transition-colors"
+            x-text="useMemory ? 'Memory: ON' : 'Memory: OFF'"
+          ></button>
+
+          <!-- Targeted @Document Filter Pills -->
+          <template x-for="docName in targetDocs" :key="docName">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 border border-[#FFFFFF] bg-[#141414] text-[#FFFFFF] font-mono text-xs">
+              <span x-text="`@${docName}`"></span>
+              <button type="button" @click="removeTargetDoc(docName)" class="hover:text-[#888888] text-sm leading-none">×</button>
+            </span>
+          </template>
+
+          <!-- Linked @Session Pills -->
+          <template x-if="currentSession && currentSession.linked_sessions && currentSession.linked_sessions.length > 0">
+            <template x-for="lsid in currentSession.linked_sessions" :key="lsid">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 border border-[#444444] bg-[#0A0A0A] text-[#888888] font-mono text-xs">
+                <span x-text="`@session:${getSessionTitleById(lsid)}`"></span>
+              </span>
+            </template>
+          </template>
+        </div>
+
+        <!-- In-Chat Ingestion Action Triggers -->
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            @click="triggerChatFileUpload()"
+            class="px-2.5 py-1 border border-[#333333] hover:border-[#FFFFFF] bg-[#0A0A0A] text-[#FFFFFF] font-mono text-xs uppercase flex items-center gap-1.5"
+            title="Upload .PDF, .TXT, or .MD file"
+          >
+            <span>+ File</span>
+          </button>
+          <button
+            type="button"
+            @click="showInlineUrlInput = !showInlineUrlInput"
+            :class="showInlineUrlInput ? 'border-[#FFFFFF] bg-[#FFFFFF] text-[#000000]' : 'border-[#333333] hover:border-[#FFFFFF] bg-[#0A0A0A] text-[#FFFFFF]'"
+            class="px-2.5 py-1 border font-mono text-xs uppercase"
+            title="Add Web URL"
+          >
+            <span>+ URL</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sharp-Edged Prompt Box -->
+      <div
+        :class="isDraggingOverPrompt ? 'border-[#FFFFFF] bg-[#141414]' : 'border-[#333333] focus-within:border-[#FFFFFF] bg-[#0A0A0A]'"
+        class="border shadow-[0_10px_30px_rgba(0,0,0,0.8)] relative flex flex-col transition-colors"
+      >
+        <!-- Drag & Drop Overlay Indicator -->
+        <div
+          x-show="isDraggingOverPrompt"
+          x-cloak
+          class="absolute inset-0 bg-[#000000]/90 flex items-center justify-center z-10 font-mono text-sm uppercase tracking-wider text-[#FFFFFF] border border-dashed border-[#FFFFFF]"
+        >
+          Drop file to attach to this session
+        </div>
+
+        <div class="flex items-end p-2.5 gap-2.5">
+          <textarea
+            id="chat-prompt-textarea"
+            x-model="promptText"
+            @input="onPromptInput($event)"
+            @keydown="onPromptKeydown($event)"
+            placeholder="Ask a question... (Type @ to filter by document)"
+            rows="1"
+            class="flex-1 min-h-[48px] max-h-[200px] bg-transparent border-none text-[15px] text-[#FFFFFF] placeholder-[#555555] focus:outline-none resize-none py-2 px-2.5 leading-relaxed"
+          ></textarea>
+
+          <!-- Submit (→) / Stop Generating (■) Button (40x40) -->
+          <button
+            type="button"
+            @click="sendMessage()"
+            :disabled="(!promptText.trim() && !isStreaming) || tokenStats.exceedsHardLimit"
+            :class="isStreaming
+              ? 'bg-[#FFFFFF] text-[#000000] opacity-100'
+              : (promptText.trim() && !tokenStats.exceedsHardLimit ? 'bg-[#FFFFFF] text-[#000000] opacity-100' : 'bg-[#FFFFFF] text-[#000000] opacity-30 cursor-not-allowed')"
+            class="w-[40px] h-[40px] shrink-0 flex items-center justify-center font-mono text-lg font-bold transition-opacity"
+            :title="isStreaming ? 'Stop Generating' : 'Send Message'"
+          >
+            <svg x-show="!isStreaming" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M5 12h14M13 5l7 7-7 7" />
+            </svg>
+            <span x-show="isStreaming" x-cloak class="text-base">■</span>
+          </button>
+        </div>
+
+        <!-- Hard Token Limit Warning (only shown when exceeded) -->
+        <template x-if="tokenStats.exceedsHardLimit">
+          <div class="px-3.5 py-1.5 border-t border-[#222222] bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold">
+            TOKEN LIMIT EXCEEDED — PLEASE SHORTEN PROMPT OR PRUNE MESSAGES
+          </div>
+        </template>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- 3. SETTINGS MODAL (960px × 680px, Comfortable Typography) -->
+  <!-- ========================================================= -->
+  <div
+    x-show="settingsOpen"
+    x-cloak
+    @keydown.escape.window="settingsOpen = false"
+    class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-6"
+  >
+    <div
+      @click.outside="settingsOpen = false"
+      class="w-[960px] h-[680px] max-w-[95vw] max-h-[90vh] bg-[#000000] border border-[#333333] flex flex-col shadow-2xl"
+    >
+      <!-- Modal Header -->
+      <div class="h-14 px-6 border-b border-[#222222] flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-sm uppercase tracking-widest font-semibold text-[#FFFFFF]">Settings</span>
+          <span
+            x-show="settingsSavedBanner"
+            x-cloak
+            class="px-2.5 py-0.5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase"
+          >
+            Saved
+          </span>
+          <span
+            x-show="lastSavedNote"
+            x-cloak
+            class="px-2.5 py-0.5 border border-[#444444] text-[#888888] font-mono text-xs uppercase"
+            x-text="lastSavedNote"
+          >
+          </span>
+        </div>
+        <button
+          @click="settingsOpen = false"
+          class="w-8 h-8 flex items-center justify-center text-[#888888] hover:text-[#FFFFFF] hover:bg-[#141414] transition-colors"
+          title="Close Settings"
+        >
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Horizontal Tab Navigation -->
+      <nav class="flex border-b border-[#222222] bg-[#0A0A0A] shrink-0 overflow-x-auto font-mono text-xs uppercase">
+        <button
+          @click="activeSettingsTab = 'llm'"
+          :class="activeSettingsTab === 'llm' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          class="px-5 py-3.5 whitespace-nowrap"
+        >
+          LLM
+        </button>
+        <button
+          @click="activeSettingsTab = 'docs'"
+          :class="activeSettingsTab === 'docs' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          class="px-5 py-3.5 whitespace-nowrap"
+        >
+          Documents (<span x-text="fileDocuments.length"></span>)
+        </button>
+        <button
+          @click="activeSettingsTab = 'urls'"
+          :class="activeSettingsTab === 'urls' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          class="px-5 py-3.5 whitespace-nowrap"
+        >
+          Web Sources (<span x-text="urlDocuments.length"></span>)
+        </button>
+        <button
+          @click="activeSettingsTab = 'general'"
+          :class="activeSettingsTab === 'general' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          class="px-5 py-3.5 whitespace-nowrap"
+        >
+          General & Data
+        </button>
+        <button
+          @click="activeSettingsTab = 'memory'"
+          :class="activeSettingsTab === 'memory' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          class="px-5 py-3.5 whitespace-nowrap"
+        >
+          Context & Memory (<span x-text="memories.length"></span>)
+        </button>
+      </nav>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <!-- TAB 1: LLM CONFIGURATION -->
+        <div x-show="activeSettingsTab === 'llm'" class="space-y-5">
+          <div class="grid grid-cols-2 gap-5">
+            <!-- Provider Selector -->
+            <div>
+              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Provider</label>
+              <select
+                x-model="settings.provider"
+                @change="onProviderChange()"
+                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+              >
+                <template x-for="p in providers" :key="p.id">
+                  <option :value="p.id" x-text="p.name"></option>
+                </template>
+              </select>
+            </div>
+
+            <!-- Base URL -->
+            <div>
+              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Base URL</label>
+              <input
+                type="text"
+                x-model="settings.base_url"
+                placeholder="https://api.openai.com/v1 or http://localhost:11434/v1"
+                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <!-- API Key with Show/Hide -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="font-mono text-xs uppercase text-[#888888]">API Key</label>
+              <span
+                class="font-mono text-xs"
+                :class="settings.has_api_key ? 'text-[#FFFFFF]' : 'text-[#888888]'"
+                x-text="settings.has_api_key ? `Stored: ${settings.api_key_masked}` : 'No key set'"
+              ></span>
+            </div>
+            <div class="flex">
+              <input
+                :type="showApiKey ? 'text' : 'password'"
+                x-model="settings.api_key"
+                :placeholder="settings.has_api_key ? `Stored (${settings.api_key_masked}) — enter new key to update` : 'Enter API Key...'"
+                class="flex-1 h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+              />
+              <button
+                type="button"
+                @click="showApiKey = !showApiKey"
+                class="px-4 h-10 border border-l-0 border-[#333333] bg-[#141414] hover:border-[#FFFFFF] font-mono text-xs uppercase text-[#FFFFFF]"
+                x-text="showApiKey ? 'Hide' : 'Show'"
+              ></button>
+            </div>
+          </div>
+
+          <!-- Model ID + Presets -->
+          <div class="grid grid-cols-2 gap-5">
+            <div>
+              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Model</label>
+              <input
+                type="text"
+                x-model="settings.model"
+                placeholder="gpt-4o, claude-3-5-sonnet, llama3.1:8b"
+                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Suggested Models</label>
+              <select
+                @change="if ($event.target.value) settings.model = $event.target.value"
+                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#888888] focus:text-[#FFFFFF] focus:outline-none"
+              >
+                <option value="">-- Choose a preset model --</option>
+                <template x-for="m in (currentProviderPreset.models || [])" :key="m">
+                  <option :value="m" :selected="settings.model === m" x-text="m"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <!-- Temperature & Max Tokens -->
+          <div class="grid grid-cols-2 gap-5">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="font-mono text-xs uppercase text-[#888888]">Temperature (0.0 – 2.0)</label>
+                <input
+                  type="number"
+                  step="0.05"
+                  min="0"
+                  max="2"
+                  x-model.number="settings.temperature"
+                  class="w-20 h-7 bg-[#0A0A0A] border border-[#333333] px-2 text-right font-mono text-sm text-[#FFFFFF]"
+                />
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.05"
+                x-model.number="settings.temperature"
+                class="w-full mt-2.5"
+              />
+            </div>
+
+            <div>
+              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Max Output Tokens</label>
+              <input
+                type="number"
+                step="128"
+                min="128"
+                max="32768"
+                x-model.number="settings.max_tokens"
+                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <!-- System Prompt -->
+          <div>
+            <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">System Prompt</label>
+            <textarea
+              rows="4"
+              x-model="settings.system_prompt"
+              class="w-full bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] p-3 text-sm font-mono text-[#FFFFFF] focus:outline-none leading-relaxed"
+            ></textarea>
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <button
+              @click="saveSettings()"
+              class="px-6 py-2.5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase tracking-wider hover:bg-[#CCCCCC]"
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 2: DOCUMENTS (RAG KNOWLEDGE BASE) -->
+        <div x-show="activeSettingsTab === 'docs'" class="space-y-5" x-cloak>
+          <!-- Sharp-Edged Dashed Dropzone -->
+          <div
+            @dragover.prevent="isDraggingOverDropzone = true"
+            @dragleave.prevent="isDraggingOverDropzone = false"
+            @drop.prevent="handleSettingsDrop($event)"
+            @click="triggerSettingsFileUpload()"
+            :class="isDraggingOverDropzone ? 'border-[#FFFFFF] bg-[#141414]' : 'border-[#444444] hover:border-[#FFFFFF] bg-[#0A0A0A]'"
+            class="border border-dashed p-7 text-center cursor-pointer transition-colors"
+          >
+            <div class="font-mono text-sm uppercase tracking-wider text-[#FFFFFF]">
+              Drag & Drop Files or Click to Browse
+            </div>
+            <div class="font-mono text-xs text-[#888888] mt-1.5">
+              Supports .PDF, .TXT, and .MD files
+            </div>
+          </div>
+
+          <!-- Uploaded Files Table -->
+          <div class="border border-[#222222] divide-y divide-[#222222]">
+            <div class="grid grid-cols-12 px-4 py-2.5 bg-[#0A0A0A] font-mono text-xs uppercase text-[#888888]">
+              <div class="col-span-5">Filename</div>
+              <div class="col-span-2">Scope</div>
+              <div class="col-span-2">Size / Chunks</div>
+              <div class="col-span-2">Status</div>
+              <div class="col-span-1 text-right">Action</div>
+            </div>
+
+            <template x-if="fileDocuments.length === 0">
+              <div class="p-8 text-center font-mono text-sm text-[#888888]">No documents uploaded yet</div>
+            </template>
+
+            <template x-for="doc in fileDocuments" :key="doc.id">
+              <div
+                @mouseleave="disarmDocDelete(doc.id)"
+                class="grid grid-cols-12 items-center px-4 py-3 text-sm font-mono bg-[#000000] hover:bg-[#0A0A0A]"
+              >
+                <div class="col-span-5 truncate text-[#FFFFFF] pr-3" x-text="doc.name" :title="doc.name"></div>
+                <div class="col-span-2">
+                  <span
+                    class="text-xs px-2 py-0.5 border border-[#333333] text-[#888888] uppercase"
+                    x-text="doc.scope === 'global' ? 'GLOBAL' : 'SESSION'"
+                  ></span>
+                </div>
+                <div class="col-span-2 text-xs text-[#888888]" x-text="`${formatBytes(doc.file_size)} · ${doc.chunk_count}c`"></div>
+                <div class="col-span-2">
+                  <span
+                    :class="doc.status === 'INDEXED' ? 'border border-[#FFFFFF] text-[#FFFFFF]' : 'bg-[#FFFFFF] text-[#000000]'"
+                    class="text-xs px-2 py-0.5 uppercase"
+                    x-text="doc.status"
+                  ></span>
+                </div>
+                <div class="col-span-1 text-right">
+                  <button
+                    @click="handleDocDeleteClick(doc.id)"
+                    :class="armedDocDelete === doc.id ? 'bg-[#FFFFFF] text-[#000000] px-2 py-0.5 text-xs font-semibold' : 'text-[#888888] hover:text-[#FFFFFF] px-1'"
+                    class="font-mono"
+                    x-text="armedDocDelete === doc.id ? 'CONFIRM?' : '×'"
+                  ></button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- TAB 3: WEB SOURCES (URL SCRAPER/CONTEXT) -->
+        <div x-show="activeSettingsTab === 'urls'" class="space-y-5" x-cloak>
+          <!-- Add URL Bar -->
+          <div class="flex gap-2.5">
+            <input
+              type="url"
+              x-model="settingsUrlValue"
+              @keydown.enter.prevent="submitSettingsUrl()"
+              placeholder="https://example.com/docs"
+              class="flex-1 h-11 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3.5 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+            />
+            <button
+              @click="submitSettingsUrl()"
+              class="h-11 bg-[#FFFFFF] text-[#000000] px-5 font-mono text-xs font-semibold uppercase tracking-wider hover:bg-[#CCCCCC]"
+            >
+              Add URL
+            </button>
+          </div>
+
+          <!-- URL List -->
+          <div class="border border-[#222222] divide-y divide-[#222222]">
+            <div class="grid grid-cols-12 px-4 py-2.5 bg-[#0A0A0A] font-mono text-xs uppercase text-[#888888]">
+              <div class="col-span-6">URL</div>
+              <div class="col-span-2">Chunks</div>
+              <div class="col-span-2">Status</div>
+              <div class="col-span-2 text-right">Actions</div>
+            </div>
+
+            <template x-if="urlDocuments.length === 0">
+              <div class="p-8 text-center font-mono text-sm text-[#888888]">No web URLs added yet</div>
+            </template>
+
+            <template x-for="doc in urlDocuments" :key="doc.id">
+              <div
+                @mouseleave="disarmDocDelete(doc.id)"
+                class="grid grid-cols-12 items-center px-4 py-3 text-sm font-mono bg-[#000000] hover:bg-[#0A0A0A]"
+              >
+                <div class="col-span-6 truncate text-[#FFFFFF] pr-3" x-text="doc.name" :title="doc.name"></div>
+                <div class="col-span-2 text-xs text-[#888888]" x-text="`${doc.chunk_count} chunks`"></div>
+                <div class="col-span-2">
+                  <span
+                    class="text-xs px-2 py-0.5 border border-[#FFFFFF] text-[#FFFFFF] uppercase"
+                    x-text="doc.status"
+                  ></span>
+                </div>
+                <div class="col-span-2 flex items-center justify-end gap-2.5">
+                  <button
+                    @click="resyncUrlDoc(doc)"
+                    class="px-2 py-1 border border-[#333333] hover:border-[#FFFFFF] text-xs text-[#888888] hover:text-[#FFFFFF]"
+                    title="Re-scrape and re-index URL"
+                  >
+                    ↻ Sync
+                  </button>
+                  <button
+                    @click="handleDocDeleteClick(doc.id)"
+                    :class="armedDocDelete === doc.id ? 'bg-[#FFFFFF] text-[#000000] px-2 py-0.5 text-xs font-semibold' : 'text-[#888888] hover:text-[#FFFFFF] px-1'"
+                    x-text="armedDocDelete === doc.id ? 'CONFIRM?' : '×'"
+                  ></button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- TAB 4: GENERAL & DATA -->
+        <div x-show="activeSettingsTab === 'general'" class="space-y-6" x-cloak>
+          <!-- Retrieval Settings: Top-K & Similarity Threshold -->
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="font-mono text-xs uppercase text-[#888888]">Top-K Results (1 – 20)</label>
+                <span class="font-mono text-sm text-[#FFFFFF]" x-text="settings.top_k"></span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="1"
+                x-model.number="settings.top_k"
+                @change="saveSettings()"
+                class="w-full mt-2.5"
+              />
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="font-mono text-xs uppercase text-[#888888]">Similarity Threshold (0.0 – 1.0)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  x-model.number="settings.similarity_threshold"
+                  @change="saveSettings()"
+                  class="w-20 h-7 bg-[#0A0A0A] border border-[#333333] px-2 text-right font-mono text-sm text-[#FFFFFF]"
+                />
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                x-model.number="settings.similarity_threshold"
+                @change="saveSettings()"
+                class="w-full mt-2.5"
+              />
+            </div>
+          </div>
+
+          <!-- Appearance: Dark / Light Mode Toggle -->
+          <div class="p-4 border border-[#222222] bg-[#0A0A0A] flex items-center justify-between">
+            <div>
+              <div class="font-mono text-sm uppercase text-[#FFFFFF]">Appearance Theme</div>
+              <div class="text-xs text-[#888888] mt-0.5">Switch between Dark and Light mode</div>
+            </div>
+            <button
+              @click="toggleTheme()"
+              class="px-4 py-2 border border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase"
+              x-text="settings.theme === 'light' ? 'Theme: Light' : 'Theme: Dark'"
+            ></button>
+          </div>
+
+          <!-- Data Management -->
+          <div class="p-4 border border-[#222222] bg-[#0A0A0A] space-y-3.5">
+            <div class="font-mono text-sm uppercase text-[#FFFFFF]">Data Management</div>
+            <div class="flex items-center gap-3.5">
+              <button
+                @click="exportHistoryJson()"
+                class="px-4 py-2.5 border border-[#FFFFFF] bg-[#000000] hover:bg-[#FFFFFF] hover:text-[#000000] font-mono text-xs uppercase transition-colors"
+              >
+                Export Chat History (.JSON)
+              </button>
+              <button
+                @click="handleClearAllSessionsClick()"
+                :class="armedClearAll ? 'bg-[#FFFFFF] text-[#000000] font-bold' : 'border border-[#FFFFFF] text-[#FFFFFF] hover:bg-[#141414]'"
+                class="px-4 py-2.5 font-mono text-xs uppercase transition-colors"
+                x-text="armedClearAll ? 'Click Again to Confirm Clear All' : 'Clear All Sessions'"
+              ></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: CONTEXT & MEMORY -->
+        <div x-show="activeSettingsTab === 'memory'" class="space-y-5" x-cloak>
+          <!-- Context Window Policy & Token Sliders -->
+          <div class="p-4 border border-[#222222] bg-[#0A0A0A] space-y-4">
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Compaction Mode</label>
+                <select
+                  x-model="settings.compaction_mode"
+                  @change="saveSettings()"
+                  class="w-full h-10 bg-[#000000] border border-[#333333] px-3 font-mono text-sm text-[#FFFFFF]"
+                >
+                  <option value="Auto-Summarize">Auto-Summarize (75%)</option>
+                  <option value="Sliding Window">Sliding Window</option>
+                  <option value="Strict Truncation">Strict Truncation</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Max Context Tokens</label>
+                <input
+                  type="number"
+                  step="512"
+                  min="2048"
+                  max="128000"
+                  x-model.number="settings.max_context_tokens"
+                  @change="saveSettings()"
+                  class="w-full h-10 bg-[#000000] border border-[#333333] px-3 font-mono text-sm text-[#FFFFFF]"
+                />
+              </div>
+              <div>
+                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Reserved Output Tokens</label>
+                <input
+                  type="number"
+                  step="256"
+                  min="256"
+                  max="16384"
+                  x-model.number="settings.reserved_output_tokens"
+                  @change="saveSettings()"
+                  class="w-full h-10 bg-[#000000] border border-[#333333] px-3 font-mono text-sm text-[#FFFFFF]"
+                />
+              </div>
+            </div>
+
+            <!-- Session Reference (@session / /link-session) -->
+            <div class="pt-3 border-t border-[#222222] flex items-center justify-between gap-3">
+              <span class="font-mono text-xs uppercase text-[#888888]">Link Previous Session Context:</span>
+              <select
+                @change="if ($event.target.value) { linkOtherSession($event.target.value); $event.target.value = ''; }"
+                class="h-10 bg-[#000000] border border-[#333333] px-3 font-mono text-sm text-[#FFFFFF]"
+              >
+                <option value="">+ Select Session to Link...</option>
+                <template x-for="s in sessions.filter(x => x.id !== currentSessionId)" :key="s.id">
+                  <option :value="s.id" x-text="s.title"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <!-- Global Memory Ledger -->
+          <div>
+            <div class="font-mono text-xs uppercase text-[#888888] mb-2">
+              Saved Memory Facts
+            </div>
+            <div class="flex gap-2.5 mb-3.5">
+              <input
+                type="text"
+                x-model="newMemoryFact"
+                @keydown.enter.prevent="addManualMemory()"
+                placeholder="Add a fact or instruction to remember across sessions..."
+                class="flex-1 h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3.5 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+              />
+              <button
+                @click="addManualMemory()"
+                class="h-10 px-5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase"
+              >
+                Add Fact
+              </button>
+            </div>
+
+            <div class="border border-[#222222] divide-y divide-[#222222] max-h-56 overflow-y-auto">
+              <template x-if="memories.length === 0">
+                <div class="p-6 text-center font-mono text-sm text-[#888888]">
+                  No saved facts yet
+                </div>
+              </template>
+              <template x-for="mem in memories" :key="mem.id">
+                <div
+                  @mouseleave="disarmMemDelete(mem.id)"
+                  class="px-4 py-2.5 flex items-center justify-between gap-3 text-sm font-mono bg-[#000000] hover:bg-[#0A0A0A]"
+                >
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="text-xs px-1.5 py-0.5 border border-[#333333] text-[#888888] uppercase" x-text="mem.category"></span>
+                    <span class="text-[#FFFFFF] truncate" x-text="mem.fact" :title="mem.fact"></span>
+                  </div>
+                  <button
+                    @click="handleMemDeleteClick(mem.id)"
+                    :class="armedMemDelete === mem.id ? 'bg-[#FFFFFF] text-[#000000] px-2 py-0.5 text-xs font-semibold' : 'text-[#888888] hover:text-[#FFFFFF] px-1'"
+                    class="shrink-0"
+                    x-text="armedMemDelete === mem.id ? 'CONFIRM?' : '×'"
+                  ></button>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

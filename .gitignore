@@ -1,0 +1,31 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Runtime data & secrets (AES master key, SQLite DB, LanceDB vectors, uploaded files)
+data/
+*.db
+*.db-shm
+*.db-wal
+.secret_key
+
+# Python bytecode & packaging
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Testing & caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+
+# Environment variables
+.env
+.env.*
+!.env.example

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crispembed"
+version = "0.17.12"
+description = "Lightweight ggml-based text embedding inference (vendored wheel with native shared libraries)"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26.0",
+]
+
+[tool.setuptools]
+packages = ["crispembed"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+crispembed = [
+    "*.so",
+    "*.so.*",
+    "*.dylib",
+    "*.dll",
+    "*.pyd",
+    "POLICY.md",
+]
