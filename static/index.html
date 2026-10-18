@@ -189,6 +189,16 @@
             :title="settings.has_api_key ? 'API Key Configured' : 'No API Key Set (Click to configure)'"
           ></span>
         </button>
+        <button
+          @click="openEvaluationTab()"
+          class="font-mono text-xs px-2.5 py-1 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] text-[#888888] hover:text-[#FFFFFF] flex items-center gap-1.5 uppercase"
+          title="Open RAG & ReAct Evaluation Suite"
+        >
+          <span>Eval</span>
+          <template x-if="activeEvalRun">
+            <span class="text-[#FFFFFF] font-semibold" x-text="`${Math.round((activeEvalRun.overall_score || 0) * 100)}%`"></span>
+          </template>
+        </button>
       </div>
 
       <!-- Intra-Session Token Budget Indicator -->
@@ -694,6 +704,13 @@
         >
           Context & Memory (<span x-text="memories.length"></span>)
         </button>
+        <button
+          @click="activeSettingsTab = 'eval'; fetchEvalRuns()"
+          :class="activeSettingsTab === 'eval' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          class="px-5 py-3.5 whitespace-nowrap"
+        >
+          Evaluation (<span x-text="evalRuns.length"></span>)
+        </button>
       </nav>
 
       <!-- Tab Content Area -->
@@ -1147,6 +1164,358 @@
               </template>
             </div>
           </div>
+        </div>
+
+        <!-- TAB 6: EVALUATION (RAG & REACT AGENT BENCHMARK SUITE) -->
+        <div x-show="activeSettingsTab === 'eval'" class="space-y-5" x-cloak>
+          <!-- Evaluation Configuration & Run Controls Bar -->
+          <div class="p-4 border border-[#222222] bg-[#0A0A0A] space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- Evaluation Mode -->
+              <div>
+                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Evaluation Scope</label>
+                <select
+                  x-model="evalConfig.mode"
+                  class="w-full h-10 bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] px-3 font-mono text-xs text-[#FFFFFF] focus:outline-none"
+                >
+                  <option value="full">Full RAG + ReAct Agent</option>
+                  <option value="retrieval">Retrieval-Only (Hit@K, MRR, NDCG)</option>
+                  <option value="llm_judge">Live LLM + Judge (Requires API Key)</option>
+                </select>
+              </div>
+
+              <!-- Dataset Source -->
+              <div>
+                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Benchmark Dataset</label>
+                <select
+                  x-model="evalConfig.dataset_source"
+                  class="w-full h-10 bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] px-3 font-mono text-xs text-[#FFFFFF] focus:outline-none"
+                >
+                  <option value="golden">Golden Benchmark Suite (8 Cases)</option>
+                  <option value="combined">Golden + Synthetic Corpus Suite</option>
+                  <option value="synthetic">Synthetic Corpus Cases Only</option>
+                  <option value="custom">Custom JSON Dataset</option>
+                </select>
+              </div>
+
+              <!-- Embedding Model Override -->
+              <div>
+                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">CrispEmbed Model</label>
+                <select
+                  x-model="evalConfig.embedding_model"
+                  class="w-full h-10 bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] px-3 font-mono text-xs text-[#FFFFFF] focus:outline-none"
+                >
+                  <option value="">Active Setting (<span x-text="settings.embedding_model"></span>)</option>
+                  <template x-for="em in embeddingModels" :key="em.id">
+                    <option :value="em.id" x-text="em.id"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+
+            <!-- Custom Dataset JSON Editor (shown when dataset_source === 'custom') -->
+            <div x-show="evalConfig.dataset_source === 'custom'" x-cloak class="space-y-2 pt-2 border-t border-[#222222]">
+              <div class="flex items-center justify-between">
+                <label class="font-mono text-xs uppercase text-[#888888]">Custom Evaluation Cases (JSON Array)</label>
+                <button
+                  type="button"
+                  @click="loadGoldenIntoCustomEditor()"
+                  class="px-2.5 py-1 border border-[#333333] hover:border-[#FFFFFF] font-mono text-xs text-[#888888] hover:text-[#FFFFFF] uppercase"
+                >
+                  Load Golden Template
+                </button>
+              </div>
+              <textarea
+                x-model="customEvalJsonText"
+                rows="4"
+                placeholder='[{"question": "What is the PTO policy?", "expected_sources": ["acme-handbook-2026.md"], "expected_facts": ["25 days"], "expect_retrieval": true}]'
+                class="w-full bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] p-2.5 text-xs font-mono text-[#FFFFFF] focus:outline-none"
+              ></textarea>
+              <template x-if="evalCustomError">
+                <div class="font-mono text-xs text-[#FFFFFF] bg-[#141414] border border-[#FFFFFF] px-3 py-1.5" x-text="evalCustomError"></div>
+              </template>
+            </div>
+
+            <!-- Action Buttons + Saved Runs Selector -->
+            <div class="pt-3 border-t border-[#222222] flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  @click="runEvaluationSuite()"
+                  :disabled="isRunningEval"
+                  :class="isRunningEval ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#CCCCCC]'"
+                  class="h-10 px-5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase tracking-wider flex items-center gap-2"
+                >
+                  <span x-text="isRunningEval ? `Evaluating (${evalProgress}%)...` : '▶ Run Evaluation'"></span>
+                </button>
+                <button
+                  type="button"
+                  @click="generateSyntheticPreview()"
+                  :disabled="isRunningEval"
+                  class="h-10 px-3.5 border border-[#333333] hover:border-[#FFFFFF] bg-[#000000] text-[#FFFFFF] font-mono text-xs uppercase"
+                  title="Generate synthetic Q&A test cases from indexed LanceDB chunks"
+                >
+                  + Generate Synthetic Cases
+                </button>
+                <template x-if="activeEvalRun">
+                  <button
+                    type="button"
+                    @click="exportActiveEvalJson()"
+                    class="h-10 px-3.5 border border-[#333333] hover:border-[#FFFFFF] bg-[#000000] text-[#888888] hover:text-[#FFFFFF] font-mono text-xs uppercase"
+                  >
+                    Export (.JSON)
+                  </button>
+                </template>
+              </div>
+
+              <!-- Past Runs History Selector -->
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs uppercase text-[#888888]">History:</span>
+                <select
+                  @change="selectEvalRunById($event.target.value)"
+                  class="h-9 bg-[#000000] border border-[#333333] px-2.5 font-mono text-xs text-[#FFFFFF]"
+                >
+                  <option value="">-- Recent Runs (<span x-text="evalRuns.length"></span>) --</option>
+                  <template x-for="r in evalRuns" :key="r.id">
+                    <option
+                      :value="r.id"
+                      :selected="activeEvalRun && activeEvalRun.id === r.id"
+                      x-text="`${Math.round((r.overall_score || 0) * 100)}% · ${r.mode.toUpperCase()} · ${r.embedding_model} (${r.passed_cases}/${r.total_cases})`"
+                    ></option>
+                  </template>
+                </select>
+                <template x-if="activeEvalRun && activeEvalRun.id">
+                  <button
+                    type="button"
+                    @click="deleteEvalRun(activeEvalRun.id)"
+                    class="h-9 px-2.5 border border-[#333333] hover:border-[#FFFFFF] font-mono text-xs text-[#888888] hover:text-[#FFFFFF]"
+                    title="Delete this evaluation run"
+                  >
+                    ×
+                  </button>
+                </template>
+              </div>
+            </div>
+
+            <!-- Live Streaming Progress Bar -->
+            <template x-if="isRunningEval">
+              <div class="space-y-1.5 pt-1">
+                <div class="flex items-center justify-between font-mono text-xs text-[#888888]">
+                  <span x-text="evalStatusMessage || 'Executing RAG & ReAct benchmark...'"></span>
+                  <span class="text-[#FFFFFF]" x-text="`${evalProgress}%`"></span>
+                </div>
+                <div class="w-full h-2 border border-[#333333] bg-[#000000]">
+                  <div
+                    class="h-full bg-[#FFFFFF] transition-all duration-150"
+                    :style="`width: ${evalProgress}%`"
+                  ></div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Scorecard Summary Grid -->
+          <template x-if="activeEvalRun && activeEvalRun.summary">
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
+                <!-- Card 1: Overall Score -->
+                <div class="p-3.5 border border-[#FFFFFF] bg-[#0A0A0A]">
+                  <div class="text-[11px] uppercase text-[#888888]">Overall Score</div>
+                  <div class="mt-1 flex items-baseline justify-between">
+                    <span class="text-2xl font-bold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.overall_score * 100).toFixed(1)}%`"></span>
+                    <span class="text-xs px-1.5 py-0.5 bg-[#FFFFFF] text-[#000000] font-semibold" x-text="`${activeEvalRun.passed_cases}/${activeEvalRun.total_cases} PASS`"></span>
+                  </div>
+                </div>
+
+                <!-- Card 2: Retrieval Hit Rate & MRR -->
+                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
+                  <div class="text-[11px] uppercase text-[#888888]">Retrieval Hit@K / MRR</div>
+                  <div class="mt-1 flex items-baseline justify-between">
+                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.hit_rate * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[#888888]" x-text="`MRR: ${Number(activeEvalRun.summary.mrr || 0).toFixed(2)} · NDCG: ${Number(activeEvalRun.summary.ndcg || 0).toFixed(2)}`"></span>
+                  </div>
+                </div>
+
+                <!-- Card 3: Context Recall & Precision -->
+                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
+                  <div class="text-[11px] uppercase text-[#888888]">Context Recall (Facts)</div>
+                  <div class="mt-1 flex items-baseline justify-between">
+                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.context_recall * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[#888888]" x-text="`Prec: ${(activeEvalRun.summary.context_precision * 100).toFixed(0)}%`"></span>
+                  </div>
+                </div>
+
+                <!-- Card 4: ReAct Tool Routing -->
+                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
+                  <div class="text-[11px] uppercase text-[#888888]">ReAct Tool Routing</div>
+                  <div class="mt-1 flex items-baseline justify-between">
+                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.tool_routing_accuracy * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[#888888]" x-text="`Budget: ${(activeEvalRun.summary.budget_compliance_rate * 100).toFixed(0)}%`"></span>
+                  </div>
+                </div>
+
+                <!-- Card 5: Answer Faithfulness -->
+                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
+                  <div class="text-[11px] uppercase text-[#888888]">Answer Faithfulness</div>
+                  <div class="mt-1 flex items-baseline justify-between">
+                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.faithfulness * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[#888888]">Groundedness</span>
+                  </div>
+                </div>
+
+                <!-- Card 6: Answer Relevance -->
+                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
+                  <div class="text-[11px] uppercase text-[#888888]">Answer Relevance</div>
+                  <div class="mt-1 flex items-baseline justify-between">
+                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.answer_relevance * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[#888888]">Completeness</span>
+                  </div>
+                </div>
+
+                <!-- Card 7: Citation Accuracy -->
+                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
+                  <div class="text-[11px] uppercase text-[#888888]">Citation Accuracy</div>
+                  <div class="mt-1 flex items-baseline justify-between">
+                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.citation_accuracy * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[#888888]">[Source] Tags</span>
+                  </div>
+                </div>
+
+                <!-- Card 8: Latency -->
+                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
+                  <div class="text-[11px] uppercase text-[#888888]">Avg Latency</div>
+                  <div class="mt-1 flex items-baseline justify-between">
+                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${Number(activeEvalRun.summary.avg_total_latency_ms || 0).toFixed(1)}ms`"></span>
+                    <span class="text-xs text-[#888888]" x-text="`Ret: ${Number(activeEvalRun.summary.avg_retrieval_latency_ms || 0).toFixed(1)}ms`"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Per-Case Breakdown Table -->
+              <div class="border border-[#222222] divide-y divide-[#222222]">
+                <div class="grid grid-cols-12 px-4 py-2.5 bg-[#0A0A0A] font-mono text-[11px] uppercase text-[#888888]">
+                  <div class="col-span-4">Test Case / Query</div>
+                  <div class="col-span-2">Category</div>
+                  <div class="col-span-1 text-center">Hit@K</div>
+                  <div class="col-span-1 text-center">Recall</div>
+                  <div class="col-span-1 text-center">Faith</div>
+                  <div class="col-span-1 text-center">Relev</div>
+                  <div class="col-span-1 text-right">Score</div>
+                  <div class="col-span-1 text-right">Status</div>
+                </div>
+
+                <template x-for="res in (activeEvalRun.results || [])" :key="res.case_id">
+                  <div class="bg-[#000000] font-mono text-xs">
+                    <!-- Summary Row (Click to Expand Details) -->
+                    <div
+                      @click="toggleEvalCaseExpand(res.case_id)"
+                      class="grid grid-cols-12 items-center px-4 py-3 hover:bg-[#0A0A0A] cursor-pointer transition-colors"
+                    >
+                      <div class="col-span-4 pr-3 flex items-center gap-2 min-w-0">
+                        <span class="text-[#888888]" x-text="expandedEvalCases[res.case_id] ? '▼' : '▸'"></span>
+                        <span class="text-[#FFFFFF] truncate" x-text="res.question" :title="res.question"></span>
+                      </div>
+                      <div class="col-span-2">
+                        <span class="px-1.5 py-0.5 border border-[#333333] text-[#888888] text-[10px] uppercase" x-text="res.category"></span>
+                      </div>
+                      <div class="col-span-1 text-center text-[#CCCCCC]" x-text="`${Math.round(res.retrieval.hit_rate * 100)}%`"></div>
+                      <div class="col-span-1 text-center text-[#CCCCCC]" x-text="`${Math.round(res.retrieval.context_recall * 100)}%`"></div>
+                      <div class="col-span-1 text-center text-[#CCCCCC]" x-text="`${Math.round(res.generation.faithfulness * 100)}%`"></div>
+                      <div class="col-span-1 text-center text-[#CCCCCC]" x-text="`${Math.round(res.generation.answer_relevance * 100)}%`"></div>
+                      <div class="col-span-1 text-right font-semibold text-[#FFFFFF]" x-text="`${Math.round(res.case_score * 100)}%`"></div>
+                      <div class="col-span-1 text-right">
+                        <span
+                          :class="res.passed ? 'bg-[#FFFFFF] text-[#000000] font-semibold' : 'border border-[#FFFFFF] text-[#FFFFFF]'"
+                          class="px-1.5 py-0.5 text-[10px] uppercase"
+                          x-text="res.passed ? 'PASS' : 'FAIL'"
+                        ></span>
+                      </div>
+                    </div>
+
+                    <!-- Expanded Case Diagnostic Inspector -->
+                    <div
+                      x-show="expandedEvalCases[res.case_id]"
+                      x-cloak
+                      class="p-4 bg-[#0A0A0A] border-t border-[#141414] space-y-3 text-xs"
+                    >
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="p-3 border border-[#222222] bg-[#000000]">
+                          <div class="text-[11px] uppercase text-[#888888] mb-1">Generated Response</div>
+                          <div class="text-[#FFFFFF] whitespace-pre-wrap leading-relaxed" x-text="res.generated_answer || '(Retrieval-only mode)'"></div>
+                        </div>
+                        <div class="p-3 border border-[#222222] bg-[#000000] space-y-2">
+                          <div>
+                            <div class="text-[11px] uppercase text-[#888888] mb-1">Expected Reference & Facts</div>
+                            <div class="text-[#CCCCCC] leading-relaxed" x-text="res.expected_answer || '(N/A)'"></div>
+                          </div>
+                          <template x-if="res.expected_facts && res.expected_facts.length > 0">
+                            <div class="pt-2 border-t border-[#141414]">
+                              <span class="text-[#888888] uppercase text-[10px]">Expected Facts: </span>
+                              <div class="flex flex-wrap gap-1.5 mt-1">
+                                <template x-for="fact in res.expected_facts" :key="fact">
+                                  <span
+                                    :class="(res.retrieval.matched_facts || []).includes(fact) ? 'bg-[#FFFFFF] text-[#000000] font-semibold' : 'border border-[#444444] text-[#888888]'"
+                                    class="px-1.5 py-0.5 text-[11px]"
+                                    x-text="`${(res.retrieval.matched_facts || []).includes(fact) ? '✓ ' : '✗ '}${fact}`"
+                                  ></span>
+                                </template>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+
+                      <!-- Metrics & ReAct Trace Metadata Bar -->
+                      <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border border-[#222222] bg-[#000000] text-[11px] text-[#888888]">
+                        <div>
+                          <span>MRR: <strong class="text-[#FFFFFF]" x-text="res.retrieval.mrr"></strong></span>
+                          <span class="mx-2">·</span>
+                          <span>NDCG: <strong class="text-[#FFFFFF]" x-text="res.retrieval.ndcg"></strong></span>
+                          <span class="mx-2">·</span>
+                          <span>Tool Routing: <strong class="text-[#FFFFFF]" x-text="res.did_retrieve ? 'RETRIEVED' : 'DIRECT'"></strong> (Expected: <span x-text="res.expect_retrieval ? 'RETRIEVED' : 'DIRECT'"></span>)</span>
+                          <span class="mx-2">·</span>
+                          <span>RAG Tokens: <strong class="text-[#FFFFFF]" x-text="res.retrieval.rag_tokens"></strong></span>
+                        </div>
+                        <div>
+                          <span x-text="res.generation.judge_rationale"></span>
+                          <span class="mx-2">·</span>
+                          <span class="text-[#FFFFFF]" x-text="`${res.total_latency_ms}ms`"></span>
+                        </div>
+                      </div>
+
+                      <!-- Retrieved Chunks List -->
+                      <template x-if="res.retrieved_chunks && res.retrieved_chunks.length > 0">
+                        <div class="space-y-1.5">
+                          <div class="text-[11px] uppercase text-[#888888]">Retrieved LanceDB Chunks (<span x-text="res.retrieved_chunks.length"></span>)</div>
+                          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <template x-for="(ch, cIdx) in res.retrieved_chunks" :key="cIdx">
+                              <div class="p-2.5 border border-[#222222] bg-[#000000]">
+                                <div class="flex items-center justify-between text-[11px] mb-1">
+                                  <span class="text-[#FFFFFF] font-semibold truncate" x-text="`#${cIdx + 1} ${ch.source_name} (chunk ${ch.chunk_index})`"></span>
+                                  <span class="text-[#888888] shrink-0" x-text="`score: ${ch.hybrid_score} · sim: ${ch.similarity}`"></span>
+                                </div>
+                                <div class="text-[11px] text-[#888888] line-clamp-2" x-text="ch.preview"></div>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- Empty State when no evaluation has been run yet -->
+          <template x-if="!activeEvalRun && !isRunningEval">
+            <div class="p-10 border border-[#222222] bg-[#0A0A0A] text-center space-y-3 font-mono">
+              <div class="text-sm uppercase text-[#FFFFFF]">No Evaluation Scorecard Loaded</div>
+              <div class="text-xs text-[#888888] max-w-lg mx-auto leading-relaxed">
+                Click <span class="text-[#FFFFFF]">▶ Run Evaluation</span> above to benchmark LanceDB hybrid retrieval (Hit Rate@K, MRR, NDCG, Context Recall) and the ReAct Agent (Tool Routing, Faithfulness, Answer Relevance, Citations).
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </div>

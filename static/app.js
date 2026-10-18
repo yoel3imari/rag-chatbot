@@ -90,6 +90,21 @@ function ragApp() {
     // --- Virtualization Window for Long Message Streams ---
     virtualLimit: 80,
 
+    // --- RAG & ReAct Evaluation State ---
+    evalRuns: [],
+    activeEvalRun: null,
+    isRunningEval: false,
+    evalProgress: 0,
+    evalStatusMessage: "",
+    evalConfig: {
+      mode: "full",
+      dataset_source: "golden",
+      embedding_model: "",
+    },
+    customEvalJsonText: "",
+    evalCustomError: "",
+    expandedEvalCases: {},
+
     get visibleMessages() {
       if (this.messages.length <= this.virtualLimit) {
         return this.messages;
@@ -142,6 +157,7 @@ function ragApp() {
         this.fetchSessions(),
         this.fetchDocuments(),
         this.fetchMemories(),
+        this.fetchEvalRuns(),
       ]);
 
       if (this.sessions.length > 0 && !this.currentSessionId) {
@@ -821,6 +837,187 @@ function ragApp() {
         a.click();
         URL.revokeObjectURL(url);
       }
+    },
+
+    // --- RAG & ReAct Evaluation Suite ---
+    openEvaluationTab() {
+      this.settingsOpen = true;
+      this.activeSettingsTab = "eval";
+      this.fetchEvalRuns();
+    },
+
+    async fetchEvalRuns() {
+      try {
+        const res = await this._apiFetch("/api/eval/runs");
+        if (res.ok) {
+          this.evalRuns = await res.json();
+          if (!this.activeEvalRun && this.evalRuns.length > 0) {
+            this.activeEvalRun = this.evalRuns[0];
+          }
+        }
+      } catch (_) {}
+    },
+
+    async selectEvalRunById(runId) {
+      if (!runId) return;
+      const found = this.evalRuns.find((r) => r.id === runId);
+      if (found) {
+        this.activeEvalRun = found;
+        this.expandedEvalCases = {};
+        return;
+      }
+      const res = await this._apiFetch(`/api/eval/runs/${runId}`);
+      if (res.ok) {
+        this.activeEvalRun = await res.json();
+        this.expandedEvalCases = {};
+      }
+    },
+
+    async deleteEvalRun(runId) {
+      if (!runId) return;
+      const res = await this._apiFetch(`/api/eval/runs/${runId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        this.evalRuns = this.evalRuns.filter((r) => r.id !== runId);
+        if (this.activeEvalRun && this.activeEvalRun.id === runId) {
+          this.activeEvalRun = this.evalRuns.length > 0 ? this.evalRuns[0] : null;
+        }
+      }
+    },
+
+    toggleEvalCaseExpand(caseId) {
+      this.expandedEvalCases = {
+        ...this.expandedEvalCases,
+        [caseId]: !this.expandedEvalCases[caseId],
+      };
+    },
+
+    async loadGoldenIntoCustomEditor() {
+      this.evalCustomError = "";
+      const res = await this._apiFetch("/api/eval/dataset");
+      if (res.ok) {
+        const data = await res.json();
+        this.customEvalJsonText = JSON.stringify(data.cases || [], null, 2);
+      }
+    },
+
+    async generateSyntheticPreview() {
+      this.evalCustomError = "";
+      this.evalStatusMessage = "Generating synthetic Q&A test cases from indexed LanceDB chunks...";
+      try {
+        const res = await this._apiFetch("/api/eval/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ max_cases: 6, use_llm: false }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          this.customEvalJsonText = JSON.stringify(data.cases || [], null, 2);
+          this.evalConfig.dataset_source = "custom";
+        }
+      } catch (err) {
+        this.evalCustomError = err.message || "Failed to generate synthetic cases";
+      } finally {
+        this.evalStatusMessage = "";
+      }
+    },
+
+    async runEvaluationSuite() {
+      if (this.isRunningEval) return;
+      this.evalCustomError = "";
+      let customCases = null;
+
+      if (this.evalConfig.dataset_source === "custom") {
+        try {
+          const parsed = JSON.parse(this.customEvalJsonText || "[]");
+          customCases = Array.isArray(parsed) ? parsed : parsed.cases || [];
+          if (!customCases.length) {
+            this.evalCustomError = "Custom JSON dataset must contain at least 1 test case.";
+            return;
+          }
+        } catch (err) {
+          this.evalCustomError = `Invalid JSON: ${err.message}`;
+          return;
+        }
+      }
+
+      this.isRunningEval = true;
+      this.evalProgress = 5;
+      this.evalStatusMessage = "Initializing benchmark suite...";
+      this.expandedEvalCases = {};
+
+      const payload = {
+        mode: this.evalConfig.mode,
+        dataset_source: this.evalConfig.dataset_source,
+        custom_cases: customCases,
+        embedding_model: this.evalConfig.embedding_model || this.settings.embedding_model,
+        top_k: this.settings.top_k,
+        similarity_threshold: this.settings.similarity_threshold,
+        dedup_threshold: this.settings.dedup_threshold,
+      };
+
+      try {
+        const resp = await this._apiFetch("/api/eval/run/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!resp.ok) {
+          const errJson = await resp.json().catch(() => ({}));
+          throw new Error(errJson.detail || `Evaluation failed (${resp.status})`);
+        }
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || "";
+
+          for (const block of parts) {
+            const line = block.trim();
+            if (!line.startsWith("data:")) continue;
+            const rawJson = line.slice(5).trim();
+            try {
+              const ev = JSON.parse(rawJson);
+              if (ev.type === "eval_start") {
+                this.evalProgress = 10;
+                this.evalStatusMessage = `Running ${ev.dataset_name} (${ev.total_cases} cases)...`;
+              } else if (ev.type === "case_result") {
+                this.evalProgress = ev.progress || 50;
+                this.evalStatusMessage = `Evaluated case ${ev.index}/${ev.total_cases}: ${ev.result?.case_id}`;
+              } else if (ev.type === "eval_complete" && ev.run) {
+                this.evalProgress = 100;
+                this.activeEvalRun = ev.run;
+                await this.fetchEvalRuns();
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (err) {
+        this.evalCustomError = err.message || "Evaluation run failed";
+      } finally {
+        this.isRunningEval = false;
+        this.evalStatusMessage = "";
+      }
+    },
+
+    exportActiveEvalJson() {
+      if (!this.activeEvalRun) return;
+      const blob = new Blob([JSON.stringify(this.activeEvalRun, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `rag-eval-${this.activeEvalRun.mode}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
     },
 
     // --- @ Mention & /link-session Autocomplete in Prompt Input ---

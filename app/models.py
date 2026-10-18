@@ -60,3 +60,32 @@ class ChatRequest(BaseModel):
     linked_session_ids: List[str] = Field(default_factory=list)
     idempotency_key: Optional[str] = None
     client_token_estimate: Optional[int] = None
+
+
+class EvalCaseModel(BaseModel):
+    id: Optional[str] = None
+    category: str = "rag_factual"  # rag_factual | targeted_doc | chitchat | math | unanswerable | synthetic
+    question: str
+    expected_answer: str = ""
+    expected_sources: List[str] = Field(default_factory=list)
+    expected_facts: List[str] = Field(default_factory=list)
+    target_docs: List[str] = Field(default_factory=list)
+    expect_retrieval: bool = True
+    allow_abstain: bool = False
+
+
+class EvalRunRequest(BaseModel):
+    mode: str = "full"  # "full" | "retrieval" | "llm_judge"
+    dataset_source: str = "golden"  # "golden" | "synthetic" | "combined" | "custom"
+    custom_cases: Optional[List[EvalCaseModel]] = None
+    top_k: Optional[int] = None
+    similarity_threshold: Optional[float] = None
+    dedup_threshold: Optional[float] = None
+    embedding_model: Optional[str] = None
+    max_synthetic_cases: int = 6
+
+
+class SyntheticEvalRequest(BaseModel):
+    doc_ids: Optional[List[str]] = None
+    max_cases: int = 6
+    use_llm: bool = False

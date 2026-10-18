@@ -154,6 +154,22 @@ class AppStore:
                     encrypted_keys_json TEXT NOT NULL DEFAULT '{}',
                     updated_at REAL NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS eval_runs (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL DEFAULT 'default',
+                    mode TEXT NOT NULL,
+                    dataset_name TEXT NOT NULL,
+                    embedding_model TEXT NOT NULL,
+                    llm_model TEXT NOT NULL DEFAULT '',
+                    overall_score REAL NOT NULL DEFAULT 0.0,
+                    total_cases INTEGER NOT NULL DEFAULT 0,
+                    passed_cases INTEGER NOT NULL DEFAULT 0,
+                    summary_json TEXT NOT NULL DEFAULT '{}',
+                    results_json TEXT NOT NULL DEFAULT '[]',
+                    config_json TEXT NOT NULL DEFAULT '{}',
+                    created_at REAL NOT NULL
+                );
                 """
             )
 
@@ -600,16 +616,92 @@ class AppStore:
             cur = conn.execute("DELETE FROM memories WHERE id = ?", (mem_id,))
             return cur.rowcount > 0
 
+    # --- Evaluation Runs ---
+    def save_eval_run(self, run_data: Dict[str, Any], user_id: str = "default") -> Dict[str, Any]:
+        run_id = run_data.get("id") or str(uuid.uuid4())
+        now = float(run_data.get("created_at") or time.time())
+        mode = str(run_data.get("mode", "full"))
+        dataset_name = str(run_data.get("dataset_name", "Golden Benchmark"))
+        embedding_model = str(run_data.get("embedding_model", "all-MiniLM-L6-v2"))
+        llm_model = str(run_data.get("llm_model", ""))
+        overall_score = float(run_data.get("overall_score", 0.0))
+        total_cases = int(run_data.get("total_cases", 0))
+        passed_cases = int(run_data.get("passed_cases", 0))
+        summary = run_data.get("summary") or {}
+        results = run_data.get("results") or []
+        config = run_data.get("config") or {}
+
+        with self._lock, self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO eval_runs (
+                    id, user_id, mode, dataset_name, embedding_model, llm_model,
+                    overall_score, total_cases, passed_cases, summary_json,
+                    results_json, config_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    user_id,
+                    mode,
+                    dataset_name,
+                    embedding_model,
+                    llm_model,
+                    overall_score,
+                    total_cases,
+                    passed_cases,
+                    json.dumps(summary),
+                    json.dumps(results),
+                    json.dumps(config),
+                    now,
+                ),
+            )
+        return self.get_eval_run(run_id) or {}
+
+    def list_eval_runs(self, user_id: str = "default", limit: int = 25) -> List[Dict[str, Any]]:
+        with self._lock, self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM eval_runs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+                (user_id, limit),
+            ).fetchall()
+            out = []
+            for r in rows:
+                d = dict(r)
+                d["summary"] = json.loads(d.pop("summary_json", "{}") or "{}")
+                d["results"] = json.loads(d.pop("results_json", "[]") or "[]")
+                d["config"] = json.loads(d.pop("config_json", "{}") or "{}")
+                out.append(d)
+            return out
+
+    def get_eval_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock, self._conn() as conn:
+            row = conn.execute("SELECT * FROM eval_runs WHERE id = ?", (run_id,)).fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            d["summary"] = json.loads(d.pop("summary_json", "{}") or "{}")
+            d["results"] = json.loads(d.pop("results_json", "[]") or "[]")
+            d["config"] = json.loads(d.pop("config_json", "{}") or "{}")
+            return d
+
+    def delete_eval_run(self, run_id: str) -> bool:
+        with self._lock, self._conn() as conn:
+            cur = conn.execute("DELETE FROM eval_runs WHERE id = ?", (run_id,))
+            return cur.rowcount > 0
+
     def export_all_history(self, user_id: str = "default") -> Dict[str, Any]:
         sessions = self.list_sessions(user_id=user_id)
         detailed_sessions = [self.get_session(s["id"]) for s in sessions]
         memories = self.list_memories(user_id=user_id)
         documents = self.list_documents(user_id=user_id)
+        eval_runs = self.list_eval_runs(user_id=user_id, limit=10)
         return {
             "exported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "sessions": detailed_sessions,
             "memories": memories,
             "documents": documents,
+            "eval_runs": eval_runs,
         }
 
 

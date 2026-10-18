@@ -107,8 +107,8 @@ def _should_auto_retrieve_heuristic(user_message: str, target_docs: List[str]) -
         return True, f"User explicitly targeted {', '.join(target_docs)} via @mention filter."
     msg_clean = user_message.strip().lower()
     chitchat_patterns = [
-        r"^(hi|hello|hey|good morning|good afternoon|good evening|yo|sup|howdy)[\s!.,?]*$",
-        r"^(thanks|thank you|thx|ok|okay|got it|cool|awesome|great)[\s!.,?]*$",
+        r"^((hi|hello|hey|hi there|hello there|good morning|good afternoon|good evening|yo|sup|howdy)[\s!.,?]*)+$",
+        r"^((thanks|thank you|thx|ok|okay|got it|cool|awesome|great)[\s!.,?]*)+$",
         r"^(who are you|what are you|how are you|what can you do)[\s!.,?]*$",
     ]
     for pat in chitchat_patterns:
@@ -542,7 +542,7 @@ async def run_react_chat_stream(
                 else:
                     direct_ai_msg = decision_msg
             except Exception as llm_err:
-                if _is_Fatal_upstream_error(llm_err):
+                if _is_fatal_upstream_error(llm_err):
                     fatal_upstream_err = str(llm_err)
                 else:
                     # Endpoint/model does not support `tools`; fall back to heuristic ReAct decision

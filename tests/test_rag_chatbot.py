@@ -255,3 +255,112 @@ def test_api_upload_size_limit_link_validation_and_ingest_idempotency(monkeypatc
             {"reasoning": "Check security policy", "query": "AES-256-GCM", "target_source": "sec.md"}
         )
         assert "AES-256-GCM" in tool_out
+
+
+@pytest.mark.asyncio
+async def test_evaluation_metrics_and_synthetic_generator():
+    from app.evaluation import (
+        evaluate_generation_metrics,
+        evaluate_retrieval_metrics,
+        format_eval_markdown_report,
+        generate_synthetic_eval_cases,
+        run_evaluation,
+    )
+
+    case = {
+        "id": "unit-01",
+        "category": "rag_factual",
+        "question": "How many days of PTO and what sabbatical policy apply?",
+        "expected_answer": "Employees get 25 days of PTO and a 4-week sabbatical after 4 years [acme-handbook-2026.md].",
+        "expected_sources": ["acme-handbook-2026.md"],
+        "expected_facts": ["25 days", "4-week", "4 years"],
+        "expect_retrieval": True,
+    }
+    retrieved_chunks = [
+        {
+            "id": "c1",
+            "doc_id": "d1",
+            "source_name": "acme-handbook-2026.md",
+            "source_type": "file",
+            "scope": "global",
+            "chunk_index": 0,
+            "text": "Employees accrue 25 days of Paid Time Off (PTO) per calendar year. After 4 years of tenure, engineers qualify for a 4-week paid sabbatical.",
+            "similarity": 0.78,
+            "hybrid_score": 0.71,
+            "match_type": "hybrid (vector+fts)",
+        }
+    ]
+    ret = evaluate_retrieval_metrics(case, retrieved_chunks, rag_token_ceiling=1500)
+    assert ret["hit_rate"] == 1.0
+    assert ret["mrr"] == 1.0
+    assert ret["context_recall"] == 1.0
+    assert ret["budget_compliant"] is True
+
+    gen = await evaluate_generation_metrics(
+        case=case,
+        answer="Employees accrue 25 days of PTO and qualify for a 4-week sabbatical after 4 years [acme-handbook-2026.md].",
+        retrieved_chunks=retrieved_chunks,
+        did_retrieve=True,
+    )
+    assert gen["tool_routing_score"] == 1.0
+    assert gen["citation_accuracy"] == 1.0
+    assert gen["answer_fact_coverage"] == 1.0
+    assert gen["faithfulness"] >= 0.85
+    assert gen["answer_relevance"] >= 0.85
+
+    synth_cases = await generate_synthetic_eval_cases(max_cases=3)
+    assert len(synth_cases) >= 1
+    assert all(c["category"] == "synthetic" and c["question"] for c in synth_cases)
+
+    run_res = await run_evaluation(mode="full", dataset_source="golden", persist=False)
+    assert run_res["total_cases"] == 8
+    assert run_res["passed_cases"] >= 7
+    assert run_res["overall_score"] >= 0.85
+    md = format_eval_markdown_report(run_res)
+    assert "# RAG & ReAct Agent Evaluation Report" in md
+    assert "golden-01" in md
+
+
+def test_evaluation_api_endpoints_and_sse_stream():
+    with TestClient(app) as client:
+        # 1. Default golden dataset endpoint
+        ds_resp = client.get("/api/eval/dataset")
+        assert ds_resp.status_code == 200
+        ds_data = ds_resp.json()
+        assert len(ds_data["cases"]) == 8
+
+        # 2. Synthetic case generator endpoint
+        gen_resp = client.post("/api/eval/generate", json={"max_cases": 3, "use_llm": False})
+        assert gen_resp.status_code == 200
+        gen_cases = gen_resp.json()["cases"]
+        assert len(gen_cases) >= 1
+
+        # 3. Streaming evaluation endpoint with custom 2-case subset
+        custom_subset = ds_data["cases"][:2]
+        stream_resp = client.post(
+            "/api/eval/run/stream",
+            json={
+                "mode": "full",
+                "dataset_source": "custom",
+                "custom_cases": custom_subset,
+            },
+        )
+        assert stream_resp.status_code == 200
+        assert "eval_start" in stream_resp.text
+        assert "case_result" in stream_resp.text
+        assert "eval_complete" in stream_resp.text
+
+        # 4. List & delete persisted evaluation runs
+        runs_resp = client.get("/api/eval/runs")
+        assert runs_resp.status_code == 200
+        runs = runs_resp.json()
+        assert len(runs) >= 1
+        run_id = runs[0]["id"]
+
+        single_run = client.get(f"/api/eval/runs/{run_id}")
+        assert single_run.status_code == 200
+        assert single_run.json()["total_cases"] == 2
+
+        del_resp = client.delete(f"/api/eval/runs/{run_id}")
+        assert del_resp.status_code == 200
+        assert del_resp.json()["deleted"] is True

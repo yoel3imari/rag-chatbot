@@ -6,18 +6,27 @@ from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadF
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+import json
 from app.agent import run_react_chat_stream
 from app.config import BASE_DIR, EMBEDDING_MODELS, MAX_UPLOAD_BYTES, PROVIDER_PRESETS
 from app.embeddings import embedding_engine
+from app.evaluation import (
+    GOLDEN_EVAL_DATASET,
+    generate_synthetic_eval_cases,
+    run_evaluation,
+    run_evaluation_stream,
+)
 from app.ingestion import chunk_text, ingest_file_stream, ingest_url_stream
 from app.models import (
     ChatRequest,
+    EvalRunRequest,
     LinkSessionRequest,
     MemoryCreate,
     MessageToggleContext,
     SessionCreate,
     SessionUpdate,
     SettingsUpdate,
+    SyntheticEvalRequest,
     UrlIngestRequest,
 )
 from app.store import rate_limiter, store
@@ -352,6 +361,87 @@ async def delete_memory(memory_id: str):
 @app.get("/api/export")
 async def export_data():
     return store.export_all_history()
+
+
+# --- RAG & ReAct Evaluation Endpoints ---
+@app.get("/api/eval/dataset")
+async def get_default_eval_dataset():
+    return {
+        "name": "Golden Benchmark Suite",
+        "cases": GOLDEN_EVAL_DATASET,
+    }
+
+
+@app.post("/api/eval/generate")
+async def generate_synthetic_dataset(payload: SyntheticEvalRequest):
+    cases = await generate_synthetic_eval_cases(
+        doc_ids=payload.doc_ids,
+        max_cases=max(1, min(30, payload.max_cases)),
+        use_llm=payload.use_llm,
+    )
+    return {
+        "name": f"Synthetic Corpus Suite ({len(cases)} cases)",
+        "cases": cases,
+    }
+
+
+@app.get("/api/eval/runs")
+async def list_evaluation_runs():
+    return store.list_eval_runs()
+
+
+@app.get("/api/eval/runs/{run_id}")
+async def get_evaluation_run(run_id: str):
+    run = store.get_eval_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Evaluation run not found")
+    return run
+
+
+@app.delete("/api/eval/runs/{run_id}")
+async def delete_evaluation_run(run_id: str):
+    ok = store.delete_eval_run(run_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Evaluation run not found")
+    return {"deleted": True, "id": run_id}
+
+
+@app.post("/api/eval/run")
+async def trigger_evaluation_run(payload: EvalRunRequest):
+    return await run_evaluation(
+        mode=payload.mode,
+        dataset_source=payload.dataset_source,
+        custom_cases=payload.custom_cases,
+        top_k=payload.top_k,
+        similarity_threshold=payload.similarity_threshold,
+        dedup_threshold=payload.dedup_threshold,
+        embedding_model=payload.embedding_model,
+        max_synthetic_cases=payload.max_synthetic_cases,
+        persist=True,
+    )
+
+
+@app.post("/api/eval/run/stream")
+async def trigger_evaluation_stream(payload: EvalRunRequest):
+    async def _sse_eval_gen():
+        async for ev in run_evaluation_stream(
+            mode=payload.mode,
+            dataset_source=payload.dataset_source,
+            custom_cases=payload.custom_cases,
+            top_k=payload.top_k,
+            similarity_threshold=payload.similarity_threshold,
+            dedup_threshold=payload.dedup_threshold,
+            embedding_model=payload.embedding_model,
+            max_synthetic_cases=payload.max_synthetic_cases,
+            persist=True,
+        ):
+            yield f"data: {json.dumps(ev)}\n\n"
+
+    return StreamingResponse(
+        _sse_eval_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # --- Chat & ReAct Agent SSE Endpoint ---
