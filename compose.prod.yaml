@@ -1,0 +1,50 @@
+# Production stack: non-root, no dev dependencies, persisted data + model cache.
+#
+#   cp .env.example .env   # then set RAG_SECRET_KEY and provider keys
+#   docker compose -f compose.prod.yaml up -d --build
+#
+# Put a TLS-terminating reverse proxy in front of this service, or set
+# APP_BIND=0.0.0.0 if you really want to expose it directly.
+name: rag-chatbot
+
+services:
+  app:
+    build:
+      context: .
+      target: prod
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+        EMBEDDING_MODEL: ${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+    image: rag-chatbot:prod
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8000}:8000"
+    environment:
+      RAG_DATA_DIR: /app/data
+      CRISPEMBED_CACHE_DIR: /models
+      RAG_SECRET_KEY: ${RAG_SECRET_KEY:-}
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - rag-chatbot-data:/app/data
+      - rag-chatbot-models:/models
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  rag-chatbot-data:
+    name: rag-chatbot-data
+  rag-chatbot-models:
+    name: rag-chatbot-models

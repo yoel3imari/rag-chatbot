@@ -1,0 +1,38 @@
+# Development stack: hot reload + the repo (including ./data) bind-mounted.
+#
+#   docker compose up --build
+#   docker compose run --rm app pytest -q
+#
+# Production lives in compose.prod.yaml.
+name: rag-chatbot-dev
+
+services:
+  app:
+    build:
+      context: .
+      target: dev
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    image: rag-chatbot:dev
+    # The vendored crispembed libraries are linux/amd64 only.
+    platform: linux/amd64
+    init: true
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8000}:8000"
+    environment:
+      RAG_DATA_DIR: ${RAG_DATA_DIR:-/app/data}
+      CRISPEMBED_CACHE_DIR: /models
+      # Uncomment when running on macOS/Windows, where bind-mount inotify
+      # events are unreliable.
+      # WATCHFILES_FORCE_POLLING: "true"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - .:/app
+      - rag-chatbot-models:/models
+
+volumes:
+  rag-chatbot-models:
+    name: rag-chatbot-models

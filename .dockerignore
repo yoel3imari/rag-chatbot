@@ -1,0 +1,38 @@
+# Version control
+.git
+.gitignore
+
+# Python virtualenvs & caches
+.venv
+venv
+__pycache__
+**/__pycache__
+*.py[cod]
+*.egg-info
+**/*.egg-info
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+.coverage.*
+htmlcov
+
+# Runtime data & secrets — never bake these into an image
+data
+*.db
+*.db-shm
+*.db-wal
+.secret_key
+.env
+.env.*
+
+# Tests & docs not needed at runtime (compose bind-mounts the repo in dev)
+tests
+AGENT.md
+DOCKER.md
+
+# OS/editor noise
+.DS_Store
+.idea
+.vscode
+*.swp
