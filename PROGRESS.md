@@ -31,8 +31,8 @@ This document tracks the implementation status of every requirement specified in
 ## 1. UI/UX & Component Architecture Specification (`AGENT.md` §1–§2)
 
 ### 1.1 Design System & Tokens
-- [x] **Swiss/Brutalist Minimalist Monochrome Aesthetic** — High-contrast monochrome palette (`#000000`, `#0A0A0A`, `#141414`, `#FFFFFF`, `#888888`, `#444444`, `#222222`) in [`static/index.html`](./static/index.html).
-- [x] **Strict `0px` Border Radius (`rounded-none`)** — Enforced globally via CSS (`* { border-radius: 0px !important; }`) and Tailwind config in [`static/index.html`](./static/index.html).
+- [x] **Swiss/Brutalist Minimalist Monochrome Default + Signature Themes** — Semantic CSS variables in [`static/css/themes.css`](./static/css/themes.css) power 12 palettes: Brutal Dark/Light, GitHub Dark/Light, ChatGPT, Claude/Claude Dark, Tokyo Night, Nord, One Dark, Dracula, and Catppuccin.
+- [x] **Theme-Controlled Border Radius** — Default Brutal themes enforce `0px` globally, while signature themes can supply their own radius token via CSS custom properties.
 - [x] **Typography (`Inter` + `JetBrains Mono`)** — Configured in [`static/index.html`](./static/index.html) for UI vs. monospace metadata/IDs/code blocks.
 
 ### 1.2 Layout Structure
@@ -65,7 +65,7 @@ This document tracks the implementation status of every requirement specified in
 
 ### Tab 4: General & Data
 - [x] **Retrieval Settings** — CrispEmbed model selector (with automatic LanceDB corpus re-indexing on model switch via `VectorStore.reindex_for_model`), Top-K chunks slider (`1–20`), and Similarity threshold (`0.0–1.0`).
-- [x] **High-Contrast Dark / Light Mode Toggle** — Monochrome polarity inversion (`toggleTheme` in [`static/js/api.js`](./static/js/api.js)).
+- [x] **Appearance Theme Picker** — 12 built-in themes with live preview swatches, instant switching, backend persistence, local caching, and a header shortcut (`setTheme`/`applyTheme` in [`static/js/api.js`](./static/js/api.js), catalog in [`static/js/state.js`](./static/js/state.js)).
 - [x] **Data Management** — `Export Chat History (.JSON)` (`GET /api/export`) and `Clear All Sessions` with two-click confirmation (`DELETE /api/sessions`).
 
 ### Tab 5: Context & Memory (`AGENT.md` §1.B)

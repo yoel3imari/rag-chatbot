@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark" data-theme="brutal-dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,6 +8,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Theme palettes (CSS variables) -->
+  <link rel="stylesheet" href="/static/css/themes.css" />
+  <!-- Apply the cached theme before first paint to avoid a flash -->
+  <script>
+    (function () {
+      try {
+        var cached = localStorage.getItem("rag_settings_cache");
+        var theme = cached ? JSON.parse(cached).theme : "brutal-dark";
+        var legacy = { dark: "brutal-dark", light: "brutal-light" };
+        theme = legacy[theme] || theme || "brutal-dark";
+        document.documentElement.setAttribute("data-theme", theme);
+        document.documentElement.classList.toggle(
+          "dark",
+          !(theme === "brutal-light" || theme === "github-light" || theme === "claude")
+        );
+      } catch (_) {}
+    })();
+  </script>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -38,56 +56,15 @@
   <script src="/static/js/chat.js"></script>
   <script src="/static/app.js"></script>
   <style>
-    * {
-      border-radius: 0px !important;
-      box-sizing: border-box;
-    }
     [x-cloak] {
       display: none !important;
-    }
-    /* Brutalist 0px Monochrome Scrollbars */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #000000;
-      border-left: 1px solid #222222;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #444444;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #FFFFFF;
-    }
-    /* Strict High-Contrast Light Mode Inversion */
-    body.theme-light {
-      filter: invert(1) hue-rotate(180deg);
-      background-color: #FFFFFF;
-    }
-    /* Sharp Range Slider */
-    input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      background: #222222;
-      height: 4px;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 14px;
-      height: 14px;
-      background: #FFFFFF;
-      border: 1px solid #000000;
-      cursor: pointer;
     }
   </style>
 </head>
 <body
   x-data="ragApp()"
   x-init="init()"
-  :class="settings.theme === 'light' ? 'theme-light' : ''"
-  class="w-screen h-screen overflow-hidden bg-[#000000] text-[#FFFFFF] font-sans text-[15px] antialiased select-text flex"
+  class="w-screen h-screen overflow-hidden bg-[var(--bg)] text-[var(--text)] font-sans text-[15px] antialiased select-text flex"
 >
   <!-- Hidden File Inputs -->
   <input
@@ -110,12 +87,12 @@
   <!-- ========================================================= -->
   <!-- A. LEFT SIDEBAR (272px fixed, 1px solid #222222)          -->
   <!-- ========================================================= -->
-  <aside class="w-[272px] shrink-0 h-full bg-[#000000] border-r border-[#222222] flex flex-col select-none">
+  <aside class="w-[272px] shrink-0 h-full bg-[var(--bg)] border-r border-[var(--border)] flex flex-col select-none">
     <!-- 1. Header Area: New Chat Button -->
-    <div class="p-3.5 border-b border-[#222222]">
+    <div class="p-3.5 border-b border-[var(--border)]">
       <button
         @click="createNewSession()"
-        class="w-full h-[44px] border border-[#FFFFFF] bg-[#000000] text-[#FFFFFF] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-100 flex items-center justify-center gap-2.5 text-sm font-mono uppercase tracking-wider font-medium"
+        class="w-full h-[44px] border border-[var(--accent)] bg-[var(--bg)] text-[var(--text)] hover:bg-[var(--accent)] hover:text-[var(--accent-contrast)] transition-colors duration-100 flex items-center justify-center gap-2.5 text-sm font-mono uppercase tracking-wider font-medium"
       >
         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M12 5v14M5 12h14" />
@@ -125,18 +102,18 @@
     </div>
 
     <!-- 2. Session List (Scrollable flex-1) -->
-    <div class="flex-1 overflow-y-auto divide-y divide-[#141414]">
+    <div class="flex-1 overflow-y-auto divide-y divide-[var(--border-subtle)]">
       <template x-for="sess in sessions" :key="sess.id">
         <div
           @click="selectSession(sess.id)"
           @mouseleave="disarmSessionDelete(sess.id)"
-          :class="currentSessionId === sess.id ? 'bg-[#141414] border-l-2 border-l-[#FFFFFF]' : 'bg-[#000000] hover:bg-[#0A0A0A]'"
+          :class="currentSessionId === sess.id ? 'bg-[var(--bg-hover)] border-l-2 border-l-[var(--accent)]' : 'bg-[var(--bg)] hover:bg-[var(--bg-elevated)]'"
           class="group h-[44px] px-3.5 flex items-center justify-between cursor-pointer transition-colors"
         >
           <div class="flex items-center gap-2 min-w-0 flex-1 pr-2">
             <span
               class="text-sm truncate"
-              :class="currentSessionId === sess.id ? 'text-[#FFFFFF] font-medium' : 'text-[#999999] group-hover:text-[#FFFFFF]'"
+              :class="currentSessionId === sess.id ? 'text-[var(--text)] font-medium' : 'text-[var(--text-muted)] group-hover:text-[var(--text)]'"
               x-text="sess.title"
             ></span>
           </div>
@@ -145,8 +122,8 @@
           <button
             @click.stop="handleSessionDeleteClick(sess.id)"
             :class="armedSessionDelete === sess.id
-              ? 'opacity-100 border border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] px-2 py-0.5 text-xs font-mono font-semibold'
-              : 'opacity-0 group-hover:opacity-100 text-[#888888] hover:text-[#FFFFFF] p-1.5'"
+              ? 'opacity-100 border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)] px-2 py-0.5 text-xs font-mono font-semibold'
+              : 'opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--text)] p-1.5'"
             class="shrink-0 transition-opacity font-mono flex items-center justify-center"
             :title="armedSessionDelete === sess.id ? 'Click again to confirm deletion' : 'Delete session'"
           >
@@ -160,10 +137,10 @@
     </div>
 
     <!-- 3. Footer Area: Settings Trigger -->
-    <div class="border-t border-[#222222]">
+    <div class="border-t border-[var(--border)]">
       <button
         @click="settingsOpen = true"
-        class="w-full h-[50px] px-4 bg-[#000000] hover:bg-[#141414] text-[#FFFFFF] flex items-center gap-3 text-sm font-mono uppercase tracking-wider transition-colors"
+        class="w-full h-[50px] px-4 bg-[var(--bg)] hover:bg-[var(--bg-hover)] text-[var(--text)] flex items-center gap-3 text-sm font-mono uppercase tracking-wider transition-colors"
       >
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" stroke-linejoin="miter">
           <circle cx="12" cy="12" r="3" />
@@ -177,53 +154,61 @@
   <!-- ========================================================= -->
   <!-- B. MAIN CHAT VIEWPORT (flex-1 relative flex flex-col)     -->
   <!-- ========================================================= -->
-  <main class="flex-1 relative flex flex-col h-full bg-[#000000] overflow-hidden">
+  <main class="flex-1 relative flex flex-col h-full bg-[var(--bg)] overflow-hidden">
     <!-- Top Header Bar: Model Info + Token Budget Indicator -->
-    <header class="h-[48px] shrink-0 border-b border-[#222222] bg-[#0A0A0A] px-5 flex items-center justify-between">
+    <header class="h-[48px] shrink-0 border-b border-[var(--border)] bg-[var(--bg-elevated)] px-5 flex items-center justify-between">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="font-mono text-sm text-[#FFFFFF] font-medium truncate" x-text="currentSession?.title || 'New Session'"></span>
-        <span class="text-[#444444]">/</span>
+        <span class="font-mono text-sm text-[var(--text)] font-medium truncate" x-text="currentSession?.title || 'New Session'"></span>
+        <span class="text-[var(--text-faint)]">/</span>
         <button
           @click="settingsOpen = true; activeSettingsTab = 'llm'"
-          class="font-mono text-xs px-2.5 py-1 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] text-[#888888] hover:text-[#FFFFFF] flex items-center gap-1.5"
+          class="font-mono text-xs px-2.5 py-1 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] text-[var(--text-muted)] hover:text-[var(--text)] flex items-center gap-1.5"
         >
           <span class="uppercase" x-text="settings.provider"></span>
           <span>:</span>
-          <span class="text-[#FFFFFF]" x-text="settings.model"></span>
+          <span class="text-[var(--text)]" x-text="settings.model"></span>
           <span
             class="w-2 h-2 inline-block"
-            :class="settings.has_api_key || ['ollama','lmstudio','custom'].includes(settings.provider) ? 'bg-[#FFFFFF]' : 'border border-[#888888]'"
+            :class="settings.has_api_key || ['ollama','lmstudio','custom'].includes(settings.provider) ? 'bg-[var(--accent)]' : 'border border-[var(--border-muted)]'"
             :title="settings.has_api_key ? 'API Key Configured' : 'No API Key Set (Click to configure)'"
           ></span>
         </button>
         <button
           @click="openEvaluationTab()"
-          class="font-mono text-xs px-2.5 py-1 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] text-[#888888] hover:text-[#FFFFFF] flex items-center gap-1.5 uppercase"
+          class="font-mono text-xs px-2.5 py-1 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] text-[var(--text-muted)] hover:text-[var(--text)] flex items-center gap-1.5 uppercase"
           title="Open RAG & ReAct Evaluation Suite"
         >
           <span>Eval</span>
           <template x-if="activeEvalRun">
-            <span class="text-[#FFFFFF] font-semibold" x-text="`${Math.round((activeEvalRun.overall_score || 0) * 100)}%`"></span>
+            <span class="text-[var(--text)] font-semibold" x-text="`${Math.round((activeEvalRun.overall_score || 0) * 100)}%`"></span>
           </template>
+        </button>
+        <button
+          @click="settingsOpen = true; activeSettingsTab = 'general'"
+          class="w-8 h-8 shrink-0 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)]"
+          :title="`Theme: ${activeTheme.label} — click to change`"
+          aria-label="Change theme"
+        >
+          <span class="w-3.5 h-3.5 border border-[var(--border-muted)]" :style="`background: ${activeTheme.swatches[3]}`"></span>
         </button>
       </div>
 
       <!-- Intra-Session Token Budget Indicator -->
       <div class="flex items-center gap-3">
         <template x-if="rateLimitCountdown > 0">
-          <div class="px-2.5 py-1 border border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] font-mono text-xs uppercase">
+          <div class="px-2.5 py-1 border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)] font-mono text-xs uppercase">
             RETRY IN <span x-text="rateLimitCountdown"></span>S
           </div>
         </template>
         <div class="flex items-center gap-2.5">
           <span
             class="font-mono text-xs"
-            :class="tokenStats.exceedsHardLimit ? 'bg-[#FFFFFF] text-[#000000] px-1.5 py-0.5 font-semibold' : 'text-[#888888]'"
+            :class="tokenStats.exceedsHardLimit ? 'bg-[var(--accent)] text-[var(--accent-contrast)] px-1.5 py-0.5 font-semibold' : 'text-[var(--text-muted)]'"
             x-text="formattedTokenCounter"
           ></span>
-          <div class="w-24 h-2 border border-[#333333] bg-[#000000] overflow-hidden">
+          <div class="w-24 h-2 border border-[var(--border-strong)] bg-[var(--bg)] overflow-hidden">
             <div
-              class="h-full bg-[#FFFFFF] transition-all duration-150"
+              class="h-full bg-[var(--accent)] transition-all duration-150"
               :style="`width: ${tokenUsagePercent}%`"
             ></div>
           </div>
@@ -238,20 +223,20 @@
       class="absolute top-14 right-5 z-30 w-80 space-y-2 pointer-events-auto"
     >
       <template x-for="toast in ingestToasts" :key="toast.id">
-        <div class="border border-[#FFFFFF] bg-[#0A0A0A] p-3.5 shadow-2xl">
+        <div class="border border-[var(--accent)] bg-[var(--bg-elevated)] p-3.5 shadow-2xl">
           <div class="flex items-center justify-between gap-2 mb-1.5">
             <span
               class="font-mono text-xs px-1.5 py-0.5 uppercase font-semibold"
-              :class="toast.status === 'FAILED' ? 'border border-[#FFFFFF] text-[#FFFFFF]' : 'bg-[#FFFFFF] text-[#000000]'"
+              :class="toast.status === 'FAILED' ? 'border border-[var(--accent)] text-[var(--text)]' : 'bg-[var(--accent)] text-[var(--accent-contrast)]'"
               x-text="`[${toast.status}]`"
             ></span>
-            <button @click="dismissToast(toast.id)" class="text-[#888888] hover:text-[#FFFFFF] font-mono text-sm px-1">×</button>
+            <button @click="dismissToast(toast.id)" class="text-[var(--text-muted)] hover:text-[var(--text)] font-mono text-sm px-1">×</button>
           </div>
-          <div class="font-mono text-sm text-[#FFFFFF] truncate mb-1" x-text="toast.name"></div>
-          <div class="text-xs text-[#888888] mb-2" x-text="toast.message"></div>
-          <div class="w-full h-1.5 border border-[#333333] bg-[#000000]">
+          <div class="font-mono text-sm text-[var(--text)] truncate mb-1" x-text="toast.name"></div>
+          <div class="text-xs text-[var(--text-muted)] mb-2" x-text="toast.message"></div>
+          <div class="w-full h-1.5 border border-[var(--border-strong)] bg-[var(--bg)]">
             <div
-              class="h-full bg-[#FFFFFF] transition-all duration-200"
+              class="h-full bg-[var(--accent)] transition-all duration-200"
               :style="`width: ${toast.progress || 0}%`"
             ></div>
           </div>
@@ -265,24 +250,24 @@
 
         <!-- Collapsible [CONTEXT SUMMARY ACTIVE] Banner -->
         <template x-if="currentSession && currentSession.summary">
-          <div class="border border-[#333333] bg-[#0A0A0A] p-4">
+          <div class="border border-[var(--border-strong)] bg-[var(--bg-elevated)] p-4">
             <div class="flex items-center justify-between">
               <button
                 @click="summaryExpanded = !summaryExpanded"
-                class="flex items-center gap-2.5 font-mono text-xs text-[#FFFFFF] hover:underline"
+                class="flex items-center gap-2.5 font-mono text-xs text-[var(--text)] hover:underline"
               >
-                <span class="px-2 py-0.5 bg-[#FFFFFF] text-[#000000] font-semibold">CONTEXT SUMMARY</span>
-                <span class="text-[#888888]" x-text="summaryExpanded ? 'HIDE ▲' : 'VIEW / EDIT ▼'"></span>
+                <span class="px-2 py-0.5 bg-[var(--accent)] text-[var(--accent-contrast)] font-semibold">CONTEXT SUMMARY</span>
+                <span class="text-[var(--text-muted)]" x-text="summaryExpanded ? 'HIDE ▲' : 'VIEW / EDIT ▼'"></span>
               </button>
             </div>
-            <div x-show="summaryExpanded" x-cloak class="mt-3 pt-3 border-t border-[#222222]">
+            <div x-show="summaryExpanded" x-cloak class="mt-3 pt-3 border-t border-[var(--border)]">
               <template x-if="!editingSummary">
                 <div>
-                  <p class="text-sm text-[#CCCCCC] leading-relaxed whitespace-pre-wrap" x-text="currentSession.summary"></p>
+                  <p class="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap" x-text="currentSession.summary"></p>
                   <div class="mt-3 flex justify-end">
                     <button
                       @click="editingSummary = true; summaryDraft = currentSession.summary"
-                      class="px-3 py-1 border border-[#FFFFFF] text-xs font-mono uppercase hover:bg-[#FFFFFF] hover:text-[#000000]"
+                      class="px-3 py-1 border border-[var(--accent)] text-xs font-mono uppercase hover:bg-[var(--accent)] hover:text-[var(--accent-contrast)]"
                     >
                       Edit Summary
                     </button>
@@ -294,18 +279,18 @@
                   <textarea
                     x-model="summaryDraft"
                     rows="3"
-                    class="w-full bg-[#000000] border border-[#FFFFFF] p-2.5 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+                    class="w-full bg-[var(--bg)] border border-[var(--accent)] p-2.5 text-sm font-mono text-[var(--text)] focus:outline-none"
                   ></textarea>
                   <div class="flex justify-end gap-2">
                     <button
                       @click="editingSummary = false"
-                      class="px-3 py-1 border border-[#333333] text-xs font-mono text-[#888888] hover:text-[#FFFFFF]"
+                      class="px-3 py-1 border border-[var(--border-strong)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)]"
                     >
                       Cancel
                     </button>
                     <button
                       @click="saveEditedSummary()"
-                      class="px-3 py-1 bg-[#FFFFFF] text-[#000000] text-xs font-mono font-semibold"
+                      class="px-3 py-1 bg-[var(--accent)] text-[var(--accent-contrast)] text-xs font-mono font-semibold"
                     >
                       Save Summary
                     </button>
@@ -321,7 +306,7 @@
           <div class="text-center py-2">
             <button
               @click="virtualLimit += 80"
-              class="px-4 py-1.5 border border-[#222222] bg-[#0A0A0A] hover:border-[#FFFFFF] font-mono text-xs text-[#888888] hover:text-[#FFFFFF]"
+              class="px-4 py-1.5 border border-[var(--border)] bg-[var(--bg-elevated)] hover:border-[var(--accent)] font-mono text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
               x-text="`Load ${hiddenMessageCount} earlier messages`"
             ></button>
           </div>
@@ -329,28 +314,28 @@
 
         <!-- Empty State Welcome Card -->
         <template x-if="messages.length === 0">
-          <div class="border border-[#222222] bg-[#0A0A0A] p-7 my-8">
-            <div class="border-b border-[#222222] pb-4 mb-5">
-              <h1 class="text-lg font-semibold text-[#FFFFFF]">How can I help you today?</h1>
-              <p class="text-sm text-[#888888] mt-1">Ask questions across your documents and web sources, or type <span class="font-mono text-[#FFFFFF]">@</span> to filter by a specific source.</p>
+          <div class="border border-[var(--border)] bg-[var(--bg-elevated)] p-7 my-8">
+            <div class="border-b border-[var(--border)] pb-4 mb-5">
+              <h1 class="text-lg font-semibold text-[var(--text)]">How can I help you today?</h1>
+              <p class="text-sm text-[var(--text-muted)] mt-1">Ask questions across your documents and web sources, or type <span class="font-mono text-[var(--text)]">@</span> to filter by a specific source.</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-sm">
               <button
                 @click="promptText = 'What is Acme Corp\'s remote work stipend and PTO policy?'; $nextTick(() => sendMessage())"
-                class="text-left p-4 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] transition-colors leading-relaxed text-[#EDEDED]"
+                class="text-left p-4 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] transition-colors leading-relaxed text-[var(--text-secondary)]"
               >
                 What is Acme Corp's remote work stipend and PTO policy?
               </button>
               <button
                 @click="promptText = '@acme-handbook-2026.md What are the SEV-1 SLA and deployment freeze rules?'; targetDocs = ['acme-handbook-2026.md']; $nextTick(() => sendMessage())"
-                class="text-left p-4 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] transition-colors leading-relaxed text-[#EDEDED]"
+                class="text-left p-4 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] transition-colors leading-relaxed text-[var(--text-secondary)]"
               >
                 @acme-handbook-2026.md What are the SEV-1 SLA rules?
               </button>
               <button
                 @click="promptText = 'Summarize our engineering deployment and incident response guidelines.'; $nextTick(() => sendMessage())"
-                class="text-left p-4 border border-[#222222] bg-[#000000] hover:border-[#FFFFFF] transition-colors leading-relaxed text-[#EDEDED]"
+                class="text-left p-4 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] transition-colors leading-relaxed text-[var(--text-secondary)]"
               >
                 Summarize our engineering deployment and incident response guidelines.
               </button>
@@ -362,54 +347,54 @@
         <template x-for="msg in visibleMessages" :key="msg.id">
           <div
             :class="[
-              msg.role === 'user' ? 'border border-[#222222] bg-[#0A0A0A]' : 'border border-[#333333] bg-[#000000]',
+              msg.role === 'user' ? 'border border-[var(--border)] bg-[var(--bg-elevated)]' : 'border border-[var(--border-strong)] bg-[var(--bg)]',
               msg.included_in_context === false ? 'opacity-45' : ''
             ]"
             class="group p-5 transition-opacity"
           >
             <!-- Message Header: Role Badge + Context Pruning Hover Toggle -->
-            <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-[#141414]">
+            <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-[var(--border-subtle)]">
               <div class="flex items-center gap-2.5">
                 <span
-                  :class="msg.role === 'user' ? 'border border-[#FFFFFF] text-[#FFFFFF]' : 'bg-[#FFFFFF] text-[#000000] font-semibold'"
+                  :class="msg.role === 'user' ? 'border border-[var(--accent)] text-[var(--text)]' : 'bg-[var(--accent)] text-[var(--accent-contrast)] font-semibold'"
                   class="font-mono text-xs px-2 py-0.5 uppercase tracking-wider"
                   x-text="msg.role === 'user' ? 'USER' : 'ASSISTANT'"
                 ></span>
                 <template x-if="msg.included_in_context === false">
-                  <span class="font-mono text-xs px-2 py-0.5 border border-[#444444] text-[#888888]">EXCLUDED FROM CONTEXT</span>
+                  <span class="font-mono text-xs px-2 py-0.5 border border-[var(--border-muted)] text-[var(--text-muted)]">EXCLUDED FROM CONTEXT</span>
                 </template>
               </div>
 
               <!-- Message-Level Context Pruning Toggle -->
               <button
                 @click="toggleMessageContext(msg)"
-                class="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity font-mono text-xs px-2.5 py-0.5 border border-[#333333] hover:border-[#FFFFFF] text-[#888888] hover:text-[#FFFFFF]"
+                class="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity font-mono text-xs px-2.5 py-0.5 border border-[var(--border-strong)] hover:border-[var(--accent)] text-[var(--text-muted)] hover:text-[var(--text)]"
                 x-text="msg.included_in_context === false ? 'Include in Context' : 'Exclude from Context'"
               ></button>
             </div>
 
             <!-- Reasoning & Tool Call Trace -->
             <template x-if="msg.role === 'assistant' && msg.react_steps && msg.react_steps.length > 0">
-              <div class="mb-3.5 border border-[#222222] bg-[#0A0A0A]">
+              <div class="mb-3.5 border border-[var(--border)] bg-[var(--bg-elevated)]">
                 <button
                   @click="msg.showTrace = !msg.showTrace"
-                  class="w-full px-3.5 py-2 flex items-center justify-between text-left font-mono text-xs text-[#888888] hover:text-[#FFFFFF]"
+                  class="w-full px-3.5 py-2 flex items-center justify-between text-left font-mono text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
                 >
                   <span class="flex items-center gap-2">
-                    <span class="text-[#FFFFFF]">▸ Reasoning</span>
+                    <span class="text-[var(--text)]">▸ Reasoning</span>
                     <span x-text="`(${msg.react_steps.length} steps)`"></span>
                   </span>
                   <span x-text="msg.showTrace ? 'Hide' : 'Show'"></span>
                 </button>
-                <div x-show="msg.showTrace" class="p-3 border-t border-[#141414] space-y-2 font-mono text-xs">
+                <div x-show="msg.showTrace" class="p-3 border-t border-[var(--border-subtle)] space-y-2 font-mono text-xs">
                   <template x-for="(st, sIdx) in msg.react_steps" :key="sIdx">
                     <div class="flex items-start gap-2.5 leading-relaxed">
                       <span
-                        :class="st.step === 'ACTION' ? 'bg-[#FFFFFF] text-[#000000] font-semibold' : 'border border-[#333333] text-[#888888]'"
+                        :class="st.step === 'ACTION' ? 'bg-[var(--accent)] text-[var(--accent-contrast)] font-semibold' : 'border border-[var(--border-strong)] text-[var(--text-muted)]'"
                         class="px-1.5 py-0.5 text-[11px] shrink-0"
                         x-text="st.step"
                       ></span>
-                      <span class="text-[#CCCCCC] break-all" x-text="st.detail"></span>
+                      <span class="text-[var(--text-secondary)] break-all" x-text="st.detail"></span>
                     </div>
                   </template>
                 </div>
@@ -418,24 +403,24 @@
 
             <!-- Message Body -->
             <div
-              class="text-[15px] leading-7 text-[#FFFFFF] break-words"
+              class="text-[15px] leading-7 text-[var(--text)] break-words"
               x-html="renderMarkdown(msg.content)"
             ></div>
             <template x-if="msg.isStreaming && !msg.content">
-              <div class="font-mono text-sm text-[#888888] animate-pulse">▍ Thinking...</div>
+              <div class="font-mono text-sm text-[var(--text-muted)] animate-pulse">▍ Thinking...</div>
             </template>
 
             <!-- Citations -->
             <template x-if="msg.citations && msg.citations.length > 0">
-              <div class="mt-4 pt-3.5 border-t border-[#222222]">
-                <div class="font-mono text-xs uppercase tracking-wider text-[#888888] mb-2.5">
+              <div class="mt-4 pt-3.5 border-t border-[var(--border)]">
+                <div class="font-mono text-xs uppercase tracking-wider text-[var(--text-muted)] mb-2.5">
                   Sources (<span x-text="msg.citations.length"></span>)
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                   <template x-for="cit in msg.citations" :key="`${cit.doc_id}_${cit.chunk_index}`">
-                    <div class="border border-[#222222] bg-[#0A0A0A] p-3 text-xs">
-                      <div class="font-mono text-xs text-[#FFFFFF] font-medium truncate mb-1" x-text="`[${cit.index}] ${cit.source_name}`"></div>
-                      <p class="text-xs text-[#888888] line-clamp-2 leading-relaxed" x-text="cit.preview"></p>
+                    <div class="border border-[var(--border)] bg-[var(--bg-elevated)] p-3 text-xs">
+                      <div class="font-mono text-xs text-[var(--text)] font-medium truncate mb-1" x-text="`[${cit.index}] ${cit.source_name}`"></div>
+                      <p class="text-xs text-[var(--text-muted)] line-clamp-2 leading-relaxed" x-text="cit.preview"></p>
                     </div>
                   </template>
                 </div>
@@ -459,9 +444,9 @@
       <div
         x-show="mentionOpen && mentionItems.length > 0"
         x-cloak
-        class="mb-1.5 border border-[#FFFFFF] bg-[#000000] shadow-2xl max-h-60 overflow-y-auto"
+        class="mb-1.5 border border-[var(--accent)] bg-[var(--bg)] shadow-2xl max-h-60 overflow-y-auto"
       >
-        <div class="px-3.5 py-2 border-b border-[#222222] bg-[#0A0A0A] flex items-center justify-between font-mono text-xs text-[#888888]">
+        <div class="px-3.5 py-2 border-b border-[var(--border)] bg-[var(--bg-elevated)] flex items-center justify-between font-mono text-xs text-[var(--text-muted)]">
           <span>Filter by Document or Session</span>
           <span>↑↓ Navigate · Enter Select</span>
         </div>
@@ -469,12 +454,12 @@
           <button
             type="button"
             @click="selectMentionItem(item)"
-            :class="idx === mentionSelectedIndex ? 'bg-[#FFFFFF] text-[#000000]' : 'bg-[#000000] text-[#FFFFFF] hover:bg-[#141414]'"
-            class="w-full px-3.5 py-2.5 flex items-center justify-between text-left font-mono text-sm border-b border-[#141414]"
+            :class="idx === mentionSelectedIndex ? 'bg-[var(--accent)] text-[var(--accent-contrast)]' : 'bg-[var(--bg)] text-[var(--text)] hover:bg-[var(--bg-hover)]'"
+            class="w-full px-3.5 py-2.5 flex items-center justify-between text-left font-mono text-sm border-b border-[var(--border-subtle)]"
           >
             <span class="truncate" x-text="item.label"></span>
             <span
-              :class="idx === mentionSelectedIndex ? 'border-[#000000] text-[#000000]' : 'border-[#333333] text-[#888888]'"
+              :class="idx === mentionSelectedIndex ? 'border-[var(--accent-contrast)] text-[var(--accent-contrast)]' : 'border-[var(--border-strong)] text-[var(--text-muted)]'"
               class="text-xs px-2 py-0.5 border uppercase ml-2 shrink-0"
               x-text="item.badge"
             ></span>
@@ -486,34 +471,34 @@
       <div
         x-show="showInlineUrlInput"
         x-cloak
-        class="mb-2 p-2.5 border border-[#FFFFFF] bg-[#0A0A0A] flex items-center gap-2.5"
+        class="mb-2 p-2.5 border border-[var(--accent)] bg-[var(--bg-elevated)] flex items-center gap-2.5"
       >
-        <span class="font-mono text-xs text-[#888888] uppercase px-1">Add URL:</span>
+        <span class="font-mono text-xs text-[var(--text-muted)] uppercase px-1">Add URL:</span>
         <input
           type="url"
           x-model="inlineUrlValue"
           @keydown.enter.prevent="submitInlineUrl()"
           placeholder="https://example.com/docs"
-          class="flex-1 bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] px-3 py-1.5 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+          class="flex-1 bg-[var(--bg)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 py-1.5 text-sm font-mono text-[var(--text)] focus:outline-none"
         />
         <button
           type="button"
           @click="inlineIngestScope = inlineIngestScope === 'session' ? 'global' : 'session'"
-          class="px-2.5 py-1.5 border border-[#333333] hover:border-[#FFFFFF] font-mono text-xs text-[#888888] hover:text-[#FFFFFF] uppercase"
+          class="px-2.5 py-1.5 border border-[var(--border-strong)] hover:border-[var(--accent)] font-mono text-xs text-[var(--text-muted)] hover:text-[var(--text)] uppercase"
           x-text="`Scope: ${inlineIngestScope}`"
           title="Toggle between Session-only and Global Knowledge Base"
         ></button>
         <button
           type="button"
           @click="submitInlineUrl()"
-          class="px-3.5 py-1.5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase"
+          class="px-3.5 py-1.5 bg-[var(--accent)] text-[var(--accent-contrast)] font-mono text-xs font-semibold uppercase"
         >
           Add
         </button>
         <button
           type="button"
           @click="showInlineUrlInput = false"
-          class="px-2 py-1 text-[#888888] hover:text-[#FFFFFF] font-mono text-base"
+          class="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text)] font-mono text-base"
         >
           ×
         </button>
@@ -526,30 +511,30 @@
           <button
             type="button"
             @click="useGlobalDocs = !useGlobalDocs"
-            :class="useGlobalDocs ? 'border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] font-semibold' : 'border-[#333333] bg-[#0A0A0A] text-[#888888]'"
+            :class="useGlobalDocs ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)] font-semibold' : 'border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-muted)]'"
             class="px-2.5 py-1 border font-mono text-xs uppercase transition-colors"
             x-text="useGlobalDocs ? 'Global Docs: ON' : 'Global Docs: OFF'"
           ></button>
           <button
             type="button"
             @click="useMemory = !useMemory; recalculateTokens()"
-            :class="useMemory ? 'border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] font-semibold' : 'border-[#333333] bg-[#0A0A0A] text-[#888888]'"
+            :class="useMemory ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)] font-semibold' : 'border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-muted)]'"
             class="px-2.5 py-1 border font-mono text-xs uppercase transition-colors"
             x-text="useMemory ? 'Memory: ON' : 'Memory: OFF'"
           ></button>
 
           <!-- Targeted @Document Filter Pills -->
           <template x-for="docName in targetDocs" :key="docName">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 border border-[#FFFFFF] bg-[#141414] text-[#FFFFFF] font-mono text-xs">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 border border-[var(--accent)] bg-[var(--bg-hover)] text-[var(--text)] font-mono text-xs">
               <span x-text="`@${docName}`"></span>
-              <button type="button" @click="removeTargetDoc(docName)" class="hover:text-[#888888] text-sm leading-none">×</button>
+              <button type="button" @click="removeTargetDoc(docName)" class="hover:text-[var(--text-muted)] text-sm leading-none">×</button>
             </span>
           </template>
 
           <!-- Linked @Session Pills -->
           <template x-if="currentSession && currentSession.linked_sessions && currentSession.linked_sessions.length > 0">
             <template x-for="lsid in currentSession.linked_sessions" :key="lsid">
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 border border-[#444444] bg-[#0A0A0A] text-[#888888] font-mono text-xs">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 border border-[var(--border-muted)] bg-[var(--bg-elevated)] text-[var(--text-muted)] font-mono text-xs">
                 <span x-text="`@session:${getSessionTitleById(lsid)}`"></span>
               </span>
             </template>
@@ -561,7 +546,7 @@
           <button
             type="button"
             @click="triggerChatFileUpload()"
-            class="px-2.5 py-1 border border-[#333333] hover:border-[#FFFFFF] bg-[#0A0A0A] text-[#FFFFFF] font-mono text-xs uppercase flex items-center gap-1.5"
+            class="px-2.5 py-1 border border-[var(--border-strong)] hover:border-[var(--accent)] bg-[var(--bg-elevated)] text-[var(--text)] font-mono text-xs uppercase flex items-center gap-1.5"
             title="Upload .PDF, .TXT, or .MD file"
           >
             <span>+ File</span>
@@ -569,7 +554,7 @@
           <button
             type="button"
             @click="showInlineUrlInput = !showInlineUrlInput"
-            :class="showInlineUrlInput ? 'border-[#FFFFFF] bg-[#FFFFFF] text-[#000000]' : 'border-[#333333] hover:border-[#FFFFFF] bg-[#0A0A0A] text-[#FFFFFF]'"
+            :class="showInlineUrlInput ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)]' : 'border-[var(--border-strong)] hover:border-[var(--accent)] bg-[var(--bg-elevated)] text-[var(--text)]'"
             class="px-2.5 py-1 border font-mono text-xs uppercase"
             title="Add Web URL"
           >
@@ -580,14 +565,14 @@
 
       <!-- Sharp-Edged Prompt Box -->
       <div
-        :class="isDraggingOverPrompt ? 'border-[#FFFFFF] bg-[#141414]' : 'border-[#333333] focus-within:border-[#FFFFFF] bg-[#0A0A0A]'"
-        class="border shadow-[0_10px_30px_rgba(0,0,0,0.8)] relative flex flex-col transition-colors"
+        :class="isDraggingOverPrompt ? 'border-[var(--accent)] bg-[var(--bg-hover)]' : 'border-[var(--border-strong)] focus-within:border-[var(--accent)] bg-[var(--bg-elevated)]'"
+        class="border shadow-[0_10px_30px_var(--shadow)] relative flex flex-col transition-colors"
       >
         <!-- Drag & Drop Overlay Indicator -->
         <div
           x-show="isDraggingOverPrompt"
           x-cloak
-          class="absolute inset-0 bg-[#000000]/90 flex items-center justify-center z-10 font-mono text-sm uppercase tracking-wider text-[#FFFFFF] border border-dashed border-[#FFFFFF]"
+          class="absolute inset-0 bg-[var(--overlay)] flex items-center justify-center z-10 font-mono text-sm uppercase tracking-wider text-[var(--text)] border border-dashed border-[var(--accent)]"
         >
           Drop file to attach to this session
         </div>
@@ -600,7 +585,7 @@
             @keydown="onPromptKeydown($event)"
             placeholder="Ask a question... (Type @ to filter by document)"
             rows="1"
-            class="flex-1 min-h-[48px] max-h-[200px] bg-transparent border-none text-[15px] text-[#FFFFFF] placeholder-[#555555] focus:outline-none resize-none py-2 px-2.5 leading-relaxed"
+            class="flex-1 min-h-[48px] max-h-[200px] bg-transparent border-none text-[15px] text-[var(--text)] placeholder-[var(--text-faint)] focus:outline-none resize-none py-2 px-2.5 leading-relaxed"
           ></textarea>
 
           <!-- Submit (→) / Stop Generating (■) Button (40x40) -->
@@ -609,8 +594,8 @@
             @click="sendMessage()"
             :disabled="(!promptText.trim() && !isStreaming) || tokenStats.exceedsHardLimit"
             :class="isStreaming
-              ? 'bg-[#FFFFFF] text-[#000000] opacity-100'
-              : (promptText.trim() && !tokenStats.exceedsHardLimit ? 'bg-[#FFFFFF] text-[#000000] opacity-100' : 'bg-[#FFFFFF] text-[#000000] opacity-30 cursor-not-allowed')"
+              ? 'bg-[var(--accent)] text-[var(--accent-contrast)] opacity-100'
+              : (promptText.trim() && !tokenStats.exceedsHardLimit ? 'bg-[var(--accent)] text-[var(--accent-contrast)] opacity-100' : 'bg-[var(--accent)] text-[var(--accent-contrast)] opacity-30 cursor-not-allowed')"
             class="w-[40px] h-[40px] shrink-0 flex items-center justify-center font-mono text-lg font-bold transition-opacity"
             :title="isStreaming ? 'Stop Generating' : 'Send Message'"
           >
@@ -623,7 +608,7 @@
 
         <!-- Hard Token Limit Warning (only shown when exceeded) -->
         <template x-if="tokenStats.exceedsHardLimit">
-          <div class="px-3.5 py-1.5 border-t border-[#222222] bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold">
+          <div class="px-3.5 py-1.5 border-t border-[var(--border)] bg-[var(--accent)] text-[var(--accent-contrast)] font-mono text-xs font-semibold">
             TOKEN LIMIT EXCEEDED — PLEASE SHORTEN PROMPT OR PRUNE MESSAGES
           </div>
         </template>
@@ -638,34 +623,34 @@
     x-show="settingsOpen"
     x-cloak
     @keydown.escape.window="settingsOpen = false"
-    class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-6"
+    class="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-xs flex items-center justify-center p-6"
   >
     <div
       @click.outside="settingsOpen = false"
-      class="w-[960px] h-[680px] max-w-[95vw] max-h-[90vh] bg-[#000000] border border-[#333333] flex flex-col shadow-2xl"
+      class="w-[960px] h-[680px] max-w-[95vw] max-h-[90vh] bg-[var(--bg)] border border-[var(--border-strong)] flex flex-col shadow-2xl"
     >
       <!-- Modal Header -->
-      <div class="h-14 px-6 border-b border-[#222222] flex items-center justify-between shrink-0">
+      <div class="h-14 px-6 border-b border-[var(--border)] flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
-          <span class="font-mono text-sm uppercase tracking-widest font-semibold text-[#FFFFFF]">Settings</span>
+          <span class="font-mono text-sm uppercase tracking-widest font-semibold text-[var(--text)]">Settings</span>
           <span
             x-show="settingsSavedBanner"
             x-cloak
-            class="px-2.5 py-0.5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase"
+            class="px-2.5 py-0.5 bg-[var(--accent)] text-[var(--accent-contrast)] font-mono text-xs font-semibold uppercase"
           >
             Saved
           </span>
           <span
             x-show="lastSavedNote"
             x-cloak
-            class="px-2.5 py-0.5 border border-[#444444] text-[#888888] font-mono text-xs uppercase"
+            class="px-2.5 py-0.5 border border-[var(--border-muted)] text-[var(--text-muted)] font-mono text-xs uppercase"
             x-text="lastSavedNote"
           >
           </span>
         </div>
         <button
           @click="settingsOpen = false"
-          class="w-8 h-8 flex items-center justify-center text-[#888888] hover:text-[#FFFFFF] hover:bg-[#141414] transition-colors"
+          class="w-8 h-8 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors"
           title="Close Settings"
         >
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -675,45 +660,45 @@
       </div>
 
       <!-- Horizontal Tab Navigation -->
-      <nav class="flex border-b border-[#222222] bg-[#0A0A0A] shrink-0 overflow-x-auto font-mono text-xs uppercase">
+      <nav class="flex border-b border-[var(--border)] bg-[var(--bg-elevated)] shrink-0 overflow-x-auto font-mono text-xs uppercase">
         <button
           @click="activeSettingsTab = 'llm'"
-          :class="activeSettingsTab === 'llm' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          :class="activeSettingsTab === 'llm' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
           class="px-5 py-3.5 whitespace-nowrap"
         >
           LLM
         </button>
         <button
           @click="activeSettingsTab = 'docs'"
-          :class="activeSettingsTab === 'docs' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          :class="activeSettingsTab === 'docs' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
           class="px-5 py-3.5 whitespace-nowrap"
         >
           Documents (<span x-text="fileDocuments.length"></span>)
         </button>
         <button
           @click="activeSettingsTab = 'urls'"
-          :class="activeSettingsTab === 'urls' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          :class="activeSettingsTab === 'urls' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
           class="px-5 py-3.5 whitespace-nowrap"
         >
           Web Sources (<span x-text="urlDocuments.length"></span>)
         </button>
         <button
           @click="activeSettingsTab = 'general'"
-          :class="activeSettingsTab === 'general' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          :class="activeSettingsTab === 'general' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
           class="px-5 py-3.5 whitespace-nowrap"
         >
           General & Data
         </button>
         <button
           @click="activeSettingsTab = 'memory'"
-          :class="activeSettingsTab === 'memory' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          :class="activeSettingsTab === 'memory' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
           class="px-5 py-3.5 whitespace-nowrap"
         >
           Context & Memory (<span x-text="memories.length"></span>)
         </button>
         <button
           @click="activeSettingsTab = 'eval'; fetchEvalRuns()"
-          :class="activeSettingsTab === 'eval' ? 'border-b-2 border-b-[#FFFFFF] text-[#FFFFFF] bg-[#000000] font-semibold' : 'text-[#888888] hover:text-[#FFFFFF]'"
+          :class="activeSettingsTab === 'eval' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
           class="px-5 py-3.5 whitespace-nowrap"
         >
           Evaluation (<span x-text="evalRuns.length"></span>)
@@ -727,11 +712,11 @@
           <div class="grid grid-cols-2 gap-5">
             <!-- Provider Selector -->
             <div>
-              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Provider</label>
+              <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Provider</label>
               <select
                 x-model="settings.provider"
                 @change="onProviderChange()"
-                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+                class="w-full h-10 bg-[var(--bg-elevated)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 text-sm font-mono text-[var(--text)] focus:outline-none"
               >
                 <template x-for="p in providers" :key="p.id">
                   <option :value="p.id" x-text="p.name"></option>
@@ -741,12 +726,12 @@
 
             <!-- Base URL -->
             <div>
-              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Base URL</label>
+              <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Base URL</label>
               <input
                 type="text"
                 x-model="settings.base_url"
                 placeholder="https://api.openai.com/v1 or http://localhost:11434/v1"
-                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+                class="w-full h-10 bg-[var(--bg-elevated)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 text-sm font-mono text-[var(--text)] focus:outline-none"
               />
             </div>
           </div>
@@ -754,10 +739,10 @@
           <!-- API Key with Show/Hide -->
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <label class="font-mono text-xs uppercase text-[#888888]">API Key</label>
+              <label class="font-mono text-xs uppercase text-[var(--text-muted)]">API Key</label>
               <span
                 class="font-mono text-xs"
-                :class="settings.has_api_key ? 'text-[#FFFFFF]' : 'text-[#888888]'"
+                :class="settings.has_api_key ? 'text-[var(--text)]' : 'text-[var(--text-muted)]'"
                 x-text="settings.has_api_key ? `Stored: ${settings.api_key_masked}` : 'No key set'"
               ></span>
             </div>
@@ -766,12 +751,12 @@
                 :type="showApiKey ? 'text' : 'password'"
                 x-model="settings.api_key"
                 :placeholder="settings.has_api_key ? `Stored (${settings.api_key_masked}) — enter new key to update` : 'Enter API Key...'"
-                class="flex-1 h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+                class="flex-1 h-10 bg-[var(--bg-elevated)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 text-sm font-mono text-[var(--text)] focus:outline-none"
               />
               <button
                 type="button"
                 @click="showApiKey = !showApiKey"
-                class="px-4 h-10 border border-l-0 border-[#333333] bg-[#141414] hover:border-[#FFFFFF] font-mono text-xs uppercase text-[#FFFFFF]"
+                class="px-4 h-10 border border-l-0 border-[var(--border-strong)] bg-[var(--bg-hover)] hover:border-[var(--accent)] font-mono text-xs uppercase text-[var(--text)]"
                 x-text="showApiKey ? 'Hide' : 'Show'"
               ></button>
             </div>
@@ -780,19 +765,19 @@
           <!-- Model ID + Presets -->
           <div class="grid grid-cols-2 gap-5">
             <div>
-              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Model</label>
+              <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Model</label>
               <input
                 type="text"
                 x-model="settings.model"
                 placeholder="gpt-4o, claude-3-5-sonnet, llama3.1:8b"
-                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+                class="w-full h-10 bg-[var(--bg-elevated)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 text-sm font-mono text-[var(--text)] focus:outline-none"
               />
             </div>
             <div>
-              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Suggested Models</label>
+              <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Suggested Models</label>
               <select
                 @change="if ($event.target.value) settings.model = $event.target.value"
-                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#888888] focus:text-[#FFFFFF] focus:outline-none"
+                class="w-full h-10 bg-[var(--bg-elevated)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 text-sm font-mono text-[var(--text-muted)] focus:text-[var(--text)] focus:outline-none"
               >
                 <option value="">-- Choose a preset model --</option>
                 <template x-for="m in (currentProviderPreset.models || [])" :key="m">
@@ -806,14 +791,14 @@
           <div class="grid grid-cols-2 gap-5">
             <div>
               <div class="flex items-center justify-between mb-1.5">
-                <label class="font-mono text-xs uppercase text-[#888888]">Temperature (0.0 – 2.0)</label>
+                <label class="font-mono text-xs uppercase text-[var(--text-muted)]">Temperature (0.0 – 2.0)</label>
                 <input
                   type="number"
                   step="0.05"
                   min="0"
                   max="2"
                   x-model.number="settings.temperature"
-                  class="w-20 h-7 bg-[#0A0A0A] border border-[#333333] px-2 text-right font-mono text-sm text-[#FFFFFF]"
+                  class="w-20 h-7 bg-[var(--bg-elevated)] border border-[var(--border-strong)] px-2 text-right font-mono text-sm text-[var(--text)]"
                 />
               </div>
               <input
@@ -827,32 +812,32 @@
             </div>
 
             <div>
-              <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Max Output Tokens</label>
+              <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Max Output Tokens</label>
               <input
                 type="number"
                 step="128"
                 min="128"
                 max="32768"
                 x-model.number="settings.max_tokens"
-                class="w-full h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+                class="w-full h-10 bg-[var(--bg-elevated)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 text-sm font-mono text-[var(--text)] focus:outline-none"
               />
             </div>
           </div>
 
           <!-- System Prompt -->
           <div>
-            <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">System Prompt</label>
+            <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">System Prompt</label>
             <textarea
               rows="4"
               x-model="settings.system_prompt"
-              class="w-full bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] p-3 text-sm font-mono text-[#FFFFFF] focus:outline-none leading-relaxed"
+              class="w-full bg-[var(--bg-elevated)] border border-[var(--border-strong)] focus:border-[var(--accent)] p-3 text-sm font-mono text-[var(--text)] focus:outline-none leading-relaxed"
             ></textarea>
           </div>
 
           <div class="flex justify-end pt-2">
             <button
               @click="saveSettings()"
-              class="px-6 py-2.5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase tracking-wider hover:bg-[#CCCCCC]"
+              class="px-6 py-2.5 bg-[var(--accent)] text-[var(--accent-contrast)] font-mono text-xs font-semibold uppercase tracking-wider hover:bg-[var(--accent-hover)]"
             >
               Save Changes
             </button>
@@ -867,20 +852,20 @@
             @dragleave.prevent="isDraggingOverDropzone = false"
             @drop.prevent="handleSettingsDrop($event)"
             @click="triggerSettingsFileUpload()"
-            :class="isDraggingOverDropzone ? 'border-[#FFFFFF] bg-[#141414]' : 'border-[#444444] hover:border-[#FFFFFF] bg-[#0A0A0A]'"
+            :class="isDraggingOverDropzone ? 'border-[var(--accent)] bg-[var(--bg-hover)]' : 'border-[var(--border-muted)] hover:border-[var(--accent)] bg-[var(--bg-elevated)]'"
             class="border border-dashed p-7 text-center cursor-pointer transition-colors"
           >
-            <div class="font-mono text-sm uppercase tracking-wider text-[#FFFFFF]">
+            <div class="font-mono text-sm uppercase tracking-wider text-[var(--text)]">
               Drag & Drop Files or Click to Browse
             </div>
-            <div class="font-mono text-xs text-[#888888] mt-1.5">
+            <div class="font-mono text-xs text-[var(--text-muted)] mt-1.5">
               Supports .PDF, .TXT, and .MD files
             </div>
           </div>
 
           <!-- Uploaded Files Table -->
-          <div class="border border-[#222222] divide-y divide-[#222222]">
-            <div class="grid grid-cols-12 px-4 py-2.5 bg-[#0A0A0A] font-mono text-xs uppercase text-[#888888]">
+          <div class="border border-[var(--border)] divide-y divide-[var(--border)]">
+            <div class="grid grid-cols-12 px-4 py-2.5 bg-[var(--bg-elevated)] font-mono text-xs uppercase text-[var(--text-muted)]">
               <div class="col-span-5">Filename</div>
               <div class="col-span-2">Scope</div>
               <div class="col-span-2">Size / Chunks</div>
@@ -889,25 +874,25 @@
             </div>
 
             <template x-if="fileDocuments.length === 0">
-              <div class="p-8 text-center font-mono text-sm text-[#888888]">No documents uploaded yet</div>
+              <div class="p-8 text-center font-mono text-sm text-[var(--text-muted)]">No documents uploaded yet</div>
             </template>
 
             <template x-for="doc in fileDocuments" :key="doc.id">
               <div
                 @mouseleave="disarmDocDelete(doc.id)"
-                class="grid grid-cols-12 items-center px-4 py-3 text-sm font-mono bg-[#000000] hover:bg-[#0A0A0A]"
+                class="grid grid-cols-12 items-center px-4 py-3 text-sm font-mono bg-[var(--bg)] hover:bg-[var(--bg-elevated)]"
               >
-                <div class="col-span-5 truncate text-[#FFFFFF] pr-3" x-text="doc.name" :title="doc.name"></div>
+                <div class="col-span-5 truncate text-[var(--text)] pr-3" x-text="doc.name" :title="doc.name"></div>
                 <div class="col-span-2">
                   <span
-                    class="text-xs px-2 py-0.5 border border-[#333333] text-[#888888] uppercase"
+                    class="text-xs px-2 py-0.5 border border-[var(--border-strong)] text-[var(--text-muted)] uppercase"
                     x-text="doc.scope === 'global' ? 'GLOBAL' : 'SESSION'"
                   ></span>
                 </div>
-                <div class="col-span-2 text-xs text-[#888888]" x-text="`${formatBytes(doc.file_size)} · ${doc.chunk_count}c`"></div>
+                <div class="col-span-2 text-xs text-[var(--text-muted)]" x-text="`${formatBytes(doc.file_size)} · ${doc.chunk_count}c`"></div>
                 <div class="col-span-2">
                   <span
-                    :class="doc.status === 'INDEXED' ? 'border border-[#FFFFFF] text-[#FFFFFF]' : 'bg-[#FFFFFF] text-[#000000]'"
+                    :class="doc.status === 'INDEXED' ? 'border border-[var(--accent)] text-[var(--text)]' : 'bg-[var(--accent)] text-[var(--accent-contrast)]'"
                     class="text-xs px-2 py-0.5 uppercase"
                     x-text="doc.status"
                   ></span>
@@ -915,7 +900,7 @@
                 <div class="col-span-1 text-right">
                   <button
                     @click="handleDocDeleteClick(doc.id)"
-                    :class="armedDocDelete === doc.id ? 'bg-[#FFFFFF] text-[#000000] px-2 py-0.5 text-xs font-semibold' : 'text-[#888888] hover:text-[#FFFFFF] px-1'"
+                    :class="armedDocDelete === doc.id ? 'bg-[var(--accent)] text-[var(--accent-contrast)] px-2 py-0.5 text-xs font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)] px-1'"
                     class="font-mono"
                     x-text="armedDocDelete === doc.id ? 'CONFIRM?' : '×'"
                   ></button>
@@ -934,19 +919,19 @@
               x-model="settingsUrlValue"
               @keydown.enter.prevent="submitSettingsUrl()"
               placeholder="https://example.com/docs"
-              class="flex-1 h-11 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3.5 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+              class="flex-1 h-11 bg-[var(--bg-elevated)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3.5 text-sm font-mono text-[var(--text)] focus:outline-none"
             />
             <button
               @click="submitSettingsUrl()"
-              class="h-11 bg-[#FFFFFF] text-[#000000] px-5 font-mono text-xs font-semibold uppercase tracking-wider hover:bg-[#CCCCCC]"
+              class="h-11 bg-[var(--accent)] text-[var(--accent-contrast)] px-5 font-mono text-xs font-semibold uppercase tracking-wider hover:bg-[var(--accent-hover)]"
             >
               Add URL
             </button>
           </div>
 
           <!-- URL List -->
-          <div class="border border-[#222222] divide-y divide-[#222222]">
-            <div class="grid grid-cols-12 px-4 py-2.5 bg-[#0A0A0A] font-mono text-xs uppercase text-[#888888]">
+          <div class="border border-[var(--border)] divide-y divide-[var(--border)]">
+            <div class="grid grid-cols-12 px-4 py-2.5 bg-[var(--bg-elevated)] font-mono text-xs uppercase text-[var(--text-muted)]">
               <div class="col-span-6">URL</div>
               <div class="col-span-2">Chunks</div>
               <div class="col-span-2">Status</div>
@@ -954,33 +939,33 @@
             </div>
 
             <template x-if="urlDocuments.length === 0">
-              <div class="p-8 text-center font-mono text-sm text-[#888888]">No web URLs added yet</div>
+              <div class="p-8 text-center font-mono text-sm text-[var(--text-muted)]">No web URLs added yet</div>
             </template>
 
             <template x-for="doc in urlDocuments" :key="doc.id">
               <div
                 @mouseleave="disarmDocDelete(doc.id)"
-                class="grid grid-cols-12 items-center px-4 py-3 text-sm font-mono bg-[#000000] hover:bg-[#0A0A0A]"
+                class="grid grid-cols-12 items-center px-4 py-3 text-sm font-mono bg-[var(--bg)] hover:bg-[var(--bg-elevated)]"
               >
-                <div class="col-span-6 truncate text-[#FFFFFF] pr-3" x-text="doc.name" :title="doc.name"></div>
-                <div class="col-span-2 text-xs text-[#888888]" x-text="`${doc.chunk_count} chunks`"></div>
+                <div class="col-span-6 truncate text-[var(--text)] pr-3" x-text="doc.name" :title="doc.name"></div>
+                <div class="col-span-2 text-xs text-[var(--text-muted)]" x-text="`${doc.chunk_count} chunks`"></div>
                 <div class="col-span-2">
                   <span
-                    class="text-xs px-2 py-0.5 border border-[#FFFFFF] text-[#FFFFFF] uppercase"
+                    class="text-xs px-2 py-0.5 border border-[var(--accent)] text-[var(--text)] uppercase"
                     x-text="doc.status"
                   ></span>
                 </div>
                 <div class="col-span-2 flex items-center justify-end gap-2.5">
                   <button
                     @click="resyncUrlDoc(doc)"
-                    class="px-2 py-1 border border-[#333333] hover:border-[#FFFFFF] text-xs text-[#888888] hover:text-[#FFFFFF]"
+                    class="px-2 py-1 border border-[var(--border-strong)] hover:border-[var(--accent)] text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
                     title="Re-scrape and re-index URL"
                   >
                     ↻ Sync
                   </button>
                   <button
                     @click="handleDocDeleteClick(doc.id)"
-                    :class="armedDocDelete === doc.id ? 'bg-[#FFFFFF] text-[#000000] px-2 py-0.5 text-xs font-semibold' : 'text-[#888888] hover:text-[#FFFFFF] px-1'"
+                    :class="armedDocDelete === doc.id ? 'bg-[var(--accent)] text-[var(--accent-contrast)] px-2 py-0.5 text-xs font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)] px-1'"
                     x-text="armedDocDelete === doc.id ? 'CONFIRM?' : '×'"
                   ></button>
                 </div>
@@ -995,8 +980,8 @@
           <div class="grid grid-cols-2 gap-6">
             <div>
               <div class="flex items-center justify-between mb-1.5">
-                <label class="font-mono text-xs uppercase text-[#888888]">Top-K Results (1 – 20)</label>
-                <span class="font-mono text-sm text-[#FFFFFF]" x-text="settings.top_k"></span>
+                <label class="font-mono text-xs uppercase text-[var(--text-muted)]">Top-K Results (1 – 20)</label>
+                <span class="font-mono text-sm text-[var(--text)]" x-text="settings.top_k"></span>
               </div>
               <input
                 type="range"
@@ -1011,7 +996,7 @@
 
             <div>
               <div class="flex items-center justify-between mb-1.5">
-                <label class="font-mono text-xs uppercase text-[#888888]">Similarity Threshold (0.0 – 1.0)</label>
+                <label class="font-mono text-xs uppercase text-[var(--text-muted)]">Similarity Threshold (0.0 – 1.0)</label>
                 <input
                   type="number"
                   min="0"
@@ -1019,7 +1004,7 @@
                   step="0.05"
                   x-model.number="settings.similarity_threshold"
                   @change="saveSettings()"
-                  class="w-20 h-7 bg-[#0A0A0A] border border-[#333333] px-2 text-right font-mono text-sm text-[#FFFFFF]"
+                  class="w-20 h-7 bg-[var(--bg-elevated)] border border-[var(--border-strong)] px-2 text-right font-mono text-sm text-[var(--text)]"
                 />
               </div>
               <input
@@ -1034,32 +1019,63 @@
             </div>
           </div>
 
-          <!-- Appearance: Dark / Light Mode Toggle -->
-          <div class="p-4 border border-[#222222] bg-[#0A0A0A] flex items-center justify-between">
-            <div>
-              <div class="font-mono text-sm uppercase text-[#FFFFFF]">Appearance Theme</div>
-              <div class="text-xs text-[#888888] mt-0.5">Switch between Dark and Light mode</div>
+          <!-- Appearance: Theme Selector -->
+          <div class="p-4 border border-[var(--border)] bg-[var(--bg-elevated)]">
+            <div class="flex items-start justify-between gap-4 mb-3.5">
+              <div>
+                <div class="font-mono text-sm uppercase text-[var(--text)]">Appearance Theme</div>
+                <div class="text-xs text-[var(--text-muted)] mt-0.5">
+                  Pick a palette — it applies instantly and is saved automatically.
+                </div>
+              </div>
+              <div class="shrink-0 text-right">
+                <div class="font-mono text-xs uppercase text-[var(--text)]" x-text="activeTheme.label"></div>
+                <div class="font-mono text-[10px] uppercase text-[var(--text-muted)] mt-0.5"
+                     x-text="activeTheme.dark ? 'Dark theme' : 'Light theme'"></div>
+              </div>
             </div>
-            <button
-              @click="toggleTheme()"
-              class="px-4 py-2 border border-[#FFFFFF] bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase"
-              x-text="settings.theme === 'light' ? 'Theme: Light' : 'Theme: Dark'"
-            ></button>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+              <template x-for="theme in themes" :key="theme.id">
+                <button
+                  type="button"
+                  @click="setTheme(theme.id)"
+                  :aria-pressed="settings.theme === theme.id"
+                  :class="settings.theme === theme.id
+                    ? 'border-[var(--accent)] bg-[var(--bg-hover)]'
+                    : 'border-[var(--border)] bg-[var(--bg)] hover:border-[var(--border-muted)] hover:bg-[var(--bg-hover)]'"
+                  class="text-left border p-2.5 transition-colors"
+                  :title="theme.description"
+                >
+                  <div class="flex items-center gap-1 mb-2">
+                    <template x-for="(swatch, swatchIndex) in theme.swatches" :key="swatchIndex">
+                      <span class="w-3.5 h-3.5 border border-[var(--border-strong)]" :style="`background: ${swatch}`"></span>
+                    </template>
+                    <span
+                      x-show="settings.theme === theme.id"
+                      class="ml-auto font-mono text-[9px] uppercase text-[var(--accent)]"
+                    >Active</span>
+                  </div>
+                  <div class="font-mono text-xs text-[var(--text)] truncate" x-text="theme.label"></div>
+                  <div class="text-[10px] text-[var(--text-muted)] truncate" x-text="theme.description"></div>
+                </button>
+              </template>
+            </div>
           </div>
 
           <!-- Data Management -->
-          <div class="p-4 border border-[#222222] bg-[#0A0A0A] space-y-3.5">
-            <div class="font-mono text-sm uppercase text-[#FFFFFF]">Data Management</div>
+          <div class="p-4 border border-[var(--border)] bg-[var(--bg-elevated)] space-y-3.5">
+            <div class="font-mono text-sm uppercase text-[var(--text)]">Data Management</div>
             <div class="flex items-center gap-3.5">
               <button
                 @click="exportHistoryJson()"
-                class="px-4 py-2.5 border border-[#FFFFFF] bg-[#000000] hover:bg-[#FFFFFF] hover:text-[#000000] font-mono text-xs uppercase transition-colors"
+                class="px-4 py-2.5 border border-[var(--accent)] bg-[var(--bg)] hover:bg-[var(--accent)] hover:text-[var(--accent-contrast)] font-mono text-xs uppercase transition-colors"
               >
                 Export Chat History (.JSON)
               </button>
               <button
                 @click="handleClearAllSessionsClick()"
-                :class="armedClearAll ? 'bg-[#FFFFFF] text-[#000000] font-bold' : 'border border-[#FFFFFF] text-[#FFFFFF] hover:bg-[#141414]'"
+                :class="armedClearAll ? 'bg-[var(--accent)] text-[var(--accent-contrast)] font-bold' : 'border border-[var(--accent)] text-[var(--text)] hover:bg-[var(--bg-hover)]'"
                 class="px-4 py-2.5 font-mono text-xs uppercase transition-colors"
                 x-text="armedClearAll ? 'Click Again to Confirm Clear All' : 'Clear All Sessions'"
               ></button>
@@ -1070,14 +1086,14 @@
         <!-- TAB 5: CONTEXT & MEMORY -->
         <div x-show="activeSettingsTab === 'memory'" class="space-y-5" x-cloak>
           <!-- Context Window Policy & Token Sliders -->
-          <div class="p-4 border border-[#222222] bg-[#0A0A0A] space-y-4">
+          <div class="p-4 border border-[var(--border)] bg-[var(--bg-elevated)] space-y-4">
             <div class="grid grid-cols-3 gap-4">
               <div>
-                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Compaction Mode</label>
+                <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Compaction Mode</label>
                 <select
                   x-model="settings.compaction_mode"
                   @change="saveSettings()"
-                  class="w-full h-10 bg-[#000000] border border-[#333333] px-3 font-mono text-sm text-[#FFFFFF]"
+                  class="w-full h-10 bg-[var(--bg)] border border-[var(--border-strong)] px-3 font-mono text-sm text-[var(--text)]"
                 >
                   <option value="Auto-Summarize">Auto-Summarize (75%)</option>
                   <option value="Sliding Window">Sliding Window</option>
@@ -1085,7 +1101,7 @@
                 </select>
               </div>
               <div>
-                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Max Context Tokens</label>
+                <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Max Context Tokens</label>
                 <input
                   type="number"
                   step="512"
@@ -1093,11 +1109,11 @@
                   max="128000"
                   x-model.number="settings.max_context_tokens"
                   @change="saveSettings()"
-                  class="w-full h-10 bg-[#000000] border border-[#333333] px-3 font-mono text-sm text-[#FFFFFF]"
+                  class="w-full h-10 bg-[var(--bg)] border border-[var(--border-strong)] px-3 font-mono text-sm text-[var(--text)]"
                 />
               </div>
               <div>
-                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Reserved Output Tokens</label>
+                <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Reserved Output Tokens</label>
                 <input
                   type="number"
                   step="256"
@@ -1105,17 +1121,17 @@
                   max="16384"
                   x-model.number="settings.reserved_output_tokens"
                   @change="saveSettings()"
-                  class="w-full h-10 bg-[#000000] border border-[#333333] px-3 font-mono text-sm text-[#FFFFFF]"
+                  class="w-full h-10 bg-[var(--bg)] border border-[var(--border-strong)] px-3 font-mono text-sm text-[var(--text)]"
                 />
               </div>
             </div>
 
             <!-- Session Reference (@session / /link-session) -->
-            <div class="pt-3 border-t border-[#222222] flex items-center justify-between gap-3">
-              <span class="font-mono text-xs uppercase text-[#888888]">Link Previous Session Context:</span>
+            <div class="pt-3 border-t border-[var(--border)] flex items-center justify-between gap-3">
+              <span class="font-mono text-xs uppercase text-[var(--text-muted)]">Link Previous Session Context:</span>
               <select
                 @change="if ($event.target.value) { linkOtherSession($event.target.value); $event.target.value = ''; }"
-                class="h-10 bg-[#000000] border border-[#333333] px-3 font-mono text-sm text-[#FFFFFF]"
+                class="h-10 bg-[var(--bg)] border border-[var(--border-strong)] px-3 font-mono text-sm text-[var(--text)]"
               >
                 <option value="">+ Select Session to Link...</option>
                 <template x-for="s in sessions.filter(x => x.id !== currentSessionId)" :key="s.id">
@@ -1127,7 +1143,7 @@
 
           <!-- Global Memory Ledger -->
           <div>
-            <div class="font-mono text-xs uppercase text-[#888888] mb-2">
+            <div class="font-mono text-xs uppercase text-[var(--text-muted)] mb-2">
               Saved Memory Facts
             </div>
             <div class="flex gap-2.5 mb-3.5">
@@ -1136,34 +1152,34 @@
                 x-model="newMemoryFact"
                 @keydown.enter.prevent="addManualMemory()"
                 placeholder="Add a fact or instruction to remember across sessions..."
-                class="flex-1 h-10 bg-[#0A0A0A] border border-[#333333] focus:border-[#FFFFFF] px-3.5 text-sm font-mono text-[#FFFFFF] focus:outline-none"
+                class="flex-1 h-10 bg-[var(--bg-elevated)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3.5 text-sm font-mono text-[var(--text)] focus:outline-none"
               />
               <button
                 @click="addManualMemory()"
-                class="h-10 px-5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase"
+                class="h-10 px-5 bg-[var(--accent)] text-[var(--accent-contrast)] font-mono text-xs font-semibold uppercase"
               >
                 Add Fact
               </button>
             </div>
 
-            <div class="border border-[#222222] divide-y divide-[#222222] max-h-56 overflow-y-auto">
+            <div class="border border-[var(--border)] divide-y divide-[var(--border)] max-h-56 overflow-y-auto">
               <template x-if="memories.length === 0">
-                <div class="p-6 text-center font-mono text-sm text-[#888888]">
+                <div class="p-6 text-center font-mono text-sm text-[var(--text-muted)]">
                   No saved facts yet
                 </div>
               </template>
               <template x-for="mem in memories" :key="mem.id">
                 <div
                   @mouseleave="disarmMemDelete(mem.id)"
-                  class="px-4 py-2.5 flex items-center justify-between gap-3 text-sm font-mono bg-[#000000] hover:bg-[#0A0A0A]"
+                  class="px-4 py-2.5 flex items-center justify-between gap-3 text-sm font-mono bg-[var(--bg)] hover:bg-[var(--bg-elevated)]"
                 >
                   <div class="flex items-center gap-2.5 min-w-0">
-                    <span class="text-xs px-1.5 py-0.5 border border-[#333333] text-[#888888] uppercase" x-text="mem.category"></span>
-                    <span class="text-[#FFFFFF] truncate" x-text="mem.fact" :title="mem.fact"></span>
+                    <span class="text-xs px-1.5 py-0.5 border border-[var(--border-strong)] text-[var(--text-muted)] uppercase" x-text="mem.category"></span>
+                    <span class="text-[var(--text)] truncate" x-text="mem.fact" :title="mem.fact"></span>
                   </div>
                   <button
                     @click="handleMemDeleteClick(mem.id)"
-                    :class="armedMemDelete === mem.id ? 'bg-[#FFFFFF] text-[#000000] px-2 py-0.5 text-xs font-semibold' : 'text-[#888888] hover:text-[#FFFFFF] px-1'"
+                    :class="armedMemDelete === mem.id ? 'bg-[var(--accent)] text-[var(--accent-contrast)] px-2 py-0.5 text-xs font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)] px-1'"
                     class="shrink-0"
                     x-text="armedMemDelete === mem.id ? 'CONFIRM?' : '×'"
                   ></button>
@@ -1176,14 +1192,14 @@
         <!-- TAB 6: EVALUATION (RAG & REACT AGENT BENCHMARK SUITE) -->
         <div x-show="activeSettingsTab === 'eval'" class="space-y-5" x-cloak>
           <!-- Evaluation Configuration & Run Controls Bar -->
-          <div class="p-4 border border-[#222222] bg-[#0A0A0A] space-y-4">
+          <div class="p-4 border border-[var(--border)] bg-[var(--bg-elevated)] space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               <!-- Evaluation Mode -->
               <div>
-                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Evaluation Scope</label>
+                <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Evaluation Scope</label>
                 <select
                   x-model="evalConfig.mode"
-                  class="w-full h-10 bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] px-3 font-mono text-xs text-[#FFFFFF] focus:outline-none"
+                  class="w-full h-10 bg-[var(--bg)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 font-mono text-xs text-[var(--text)] focus:outline-none"
                 >
                   <option value="full">Full RAG + ReAct Agent</option>
                   <option value="retrieval">Retrieval-Only (Hit@K, MRR, NDCG)</option>
@@ -1193,10 +1209,10 @@
 
               <!-- Dataset Source -->
               <div>
-                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">Benchmark Dataset</label>
+                <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">Benchmark Dataset</label>
                 <select
                   x-model="evalConfig.dataset_source"
-                  class="w-full h-10 bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] px-3 font-mono text-xs text-[#FFFFFF] focus:outline-none"
+                  class="w-full h-10 bg-[var(--bg)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 font-mono text-xs text-[var(--text)] focus:outline-none"
                 >
                   <option value="golden">Golden Benchmark Suite (8 Cases)</option>
                   <option value="combined">Golden + Synthetic Corpus Suite</option>
@@ -1207,10 +1223,10 @@
 
               <!-- Embedding Model Override -->
               <div>
-                <label class="block font-mono text-xs uppercase text-[#888888] mb-1.5">CrispEmbed Model</label>
+                <label class="block font-mono text-xs uppercase text-[var(--text-muted)] mb-1.5">CrispEmbed Model</label>
                 <select
                   x-model="evalConfig.embedding_model"
-                  class="w-full h-10 bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] px-3 font-mono text-xs text-[#FFFFFF] focus:outline-none"
+                  class="w-full h-10 bg-[var(--bg)] border border-[var(--border-strong)] focus:border-[var(--accent)] px-3 font-mono text-xs text-[var(--text)] focus:outline-none"
                 >
                   <option value="">Active Setting (<span x-text="settings.embedding_model"></span>)</option>
                   <template x-for="em in embeddingModels" :key="em.id">
@@ -1221,13 +1237,13 @@
             </div>
 
             <!-- Custom Dataset JSON Editor (shown when dataset_source === 'custom') -->
-            <div x-show="evalConfig.dataset_source === 'custom'" x-cloak class="space-y-2 pt-2 border-t border-[#222222]">
+            <div x-show="evalConfig.dataset_source === 'custom'" x-cloak class="space-y-2 pt-2 border-t border-[var(--border)]">
               <div class="flex items-center justify-between">
-                <label class="font-mono text-xs uppercase text-[#888888]">Custom Evaluation Cases (JSON Array)</label>
+                <label class="font-mono text-xs uppercase text-[var(--text-muted)]">Custom Evaluation Cases (JSON Array)</label>
                 <button
                   type="button"
                   @click="loadGoldenIntoCustomEditor()"
-                  class="px-2.5 py-1 border border-[#333333] hover:border-[#FFFFFF] font-mono text-xs text-[#888888] hover:text-[#FFFFFF] uppercase"
+                  class="px-2.5 py-1 border border-[var(--border-strong)] hover:border-[var(--accent)] font-mono text-xs text-[var(--text-muted)] hover:text-[var(--text)] uppercase"
                 >
                   Load Golden Template
                 </button>
@@ -1236,22 +1252,22 @@
                 x-model="customEvalJsonText"
                 rows="4"
                 placeholder='[{"question": "What is the PTO policy?", "expected_sources": ["acme-handbook-2026.md"], "expected_facts": ["25 days"], "expect_retrieval": true}]'
-                class="w-full bg-[#000000] border border-[#333333] focus:border-[#FFFFFF] p-2.5 text-xs font-mono text-[#FFFFFF] focus:outline-none"
+                class="w-full bg-[var(--bg)] border border-[var(--border-strong)] focus:border-[var(--accent)] p-2.5 text-xs font-mono text-[var(--text)] focus:outline-none"
               ></textarea>
               <template x-if="evalCustomError">
-                <div class="font-mono text-xs text-[#FFFFFF] bg-[#141414] border border-[#FFFFFF] px-3 py-1.5" x-text="evalCustomError"></div>
+                <div class="font-mono text-xs text-[var(--text)] bg-[var(--bg-hover)] border border-[var(--accent)] px-3 py-1.5" x-text="evalCustomError"></div>
               </template>
             </div>
 
             <!-- Action Buttons + Saved Runs Selector -->
-            <div class="pt-3 border-t border-[#222222] flex flex-wrap items-center justify-between gap-3">
+            <div class="pt-3 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-2.5">
                 <button
                   type="button"
                   @click="runEvaluationSuite()"
                   :disabled="isRunningEval"
-                  :class="isRunningEval ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#CCCCCC]'"
-                  class="h-10 px-5 bg-[#FFFFFF] text-[#000000] font-mono text-xs font-semibold uppercase tracking-wider flex items-center gap-2"
+                  :class="isRunningEval ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--accent-hover)]'"
+                  class="h-10 px-5 bg-[var(--accent)] text-[var(--accent-contrast)] font-mono text-xs font-semibold uppercase tracking-wider flex items-center gap-2"
                 >
                   <span x-text="isRunningEval ? `Evaluating (${evalProgress}%)...` : '▶ Run Evaluation'"></span>
                 </button>
@@ -1259,7 +1275,7 @@
                   type="button"
                   @click="generateSyntheticPreview()"
                   :disabled="isRunningEval"
-                  class="h-10 px-3.5 border border-[#333333] hover:border-[#FFFFFF] bg-[#000000] text-[#FFFFFF] font-mono text-xs uppercase"
+                  class="h-10 px-3.5 border border-[var(--border-strong)] hover:border-[var(--accent)] bg-[var(--bg)] text-[var(--text)] font-mono text-xs uppercase"
                   title="Generate synthetic Q&A test cases from indexed LanceDB chunks"
                 >
                   + Generate Synthetic Cases
@@ -1268,7 +1284,7 @@
                   <button
                     type="button"
                     @click="exportActiveEvalJson()"
-                    class="h-10 px-3.5 border border-[#333333] hover:border-[#FFFFFF] bg-[#000000] text-[#888888] hover:text-[#FFFFFF] font-mono text-xs uppercase"
+                    class="h-10 px-3.5 border border-[var(--border-strong)] hover:border-[var(--accent)] bg-[var(--bg)] text-[var(--text-muted)] hover:text-[var(--text)] font-mono text-xs uppercase"
                   >
                     Export (.JSON)
                   </button>
@@ -1277,10 +1293,10 @@
 
               <!-- Past Runs History Selector -->
               <div class="flex items-center gap-2">
-                <span class="font-mono text-xs uppercase text-[#888888]">History:</span>
+                <span class="font-mono text-xs uppercase text-[var(--text-muted)]">History:</span>
                 <select
                   @change="selectEvalRunById($event.target.value)"
-                  class="h-9 bg-[#000000] border border-[#333333] px-2.5 font-mono text-xs text-[#FFFFFF]"
+                  class="h-9 bg-[var(--bg)] border border-[var(--border-strong)] px-2.5 font-mono text-xs text-[var(--text)]"
                 >
                   <option value="">-- Recent Runs (<span x-text="evalRuns.length"></span>) --</option>
                   <template x-for="r in evalRuns" :key="r.id">
@@ -1295,7 +1311,7 @@
                   <button
                     type="button"
                     @click="deleteEvalRun(activeEvalRun.id)"
-                    class="h-9 px-2.5 border border-[#333333] hover:border-[#FFFFFF] font-mono text-xs text-[#888888] hover:text-[#FFFFFF]"
+                    class="h-9 px-2.5 border border-[var(--border-strong)] hover:border-[var(--accent)] font-mono text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
                     title="Delete this evaluation run"
                   >
                     ×
@@ -1307,13 +1323,13 @@
             <!-- Live Streaming Progress Bar -->
             <template x-if="isRunningEval">
               <div class="space-y-1.5 pt-1">
-                <div class="flex items-center justify-between font-mono text-xs text-[#888888]">
+                <div class="flex items-center justify-between font-mono text-xs text-[var(--text-muted)]">
                   <span x-text="evalStatusMessage || 'Executing RAG & ReAct benchmark...'"></span>
-                  <span class="text-[#FFFFFF]" x-text="`${evalProgress}%`"></span>
+                  <span class="text-[var(--text)]" x-text="`${evalProgress}%`"></span>
                 </div>
-                <div class="w-full h-2 border border-[#333333] bg-[#000000]">
+                <div class="w-full h-2 border border-[var(--border-strong)] bg-[var(--bg)]">
                   <div
-                    class="h-full bg-[#FFFFFF] transition-all duration-150"
+                    class="h-full bg-[var(--accent)] transition-all duration-150"
                     :style="`width: ${evalProgress}%`"
                   ></div>
                 </div>
@@ -1326,81 +1342,81 @@
             <div class="space-y-4">
               <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
                 <!-- Card 1: Overall Score -->
-                <div class="p-3.5 border border-[#FFFFFF] bg-[#0A0A0A]">
-                  <div class="text-[11px] uppercase text-[#888888]">Overall Score</div>
+                <div class="p-3.5 border border-[var(--accent)] bg-[var(--bg-elevated)]">
+                  <div class="text-[11px] uppercase text-[var(--text-muted)]">Overall Score</div>
                   <div class="mt-1 flex items-baseline justify-between">
-                    <span class="text-2xl font-bold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.overall_score * 100).toFixed(1)}%`"></span>
-                    <span class="text-xs px-1.5 py-0.5 bg-[#FFFFFF] text-[#000000] font-semibold" x-text="`${activeEvalRun.passed_cases}/${activeEvalRun.total_cases} PASS`"></span>
+                    <span class="text-2xl font-bold text-[var(--text)]" x-text="`${(activeEvalRun.summary.overall_score * 100).toFixed(1)}%`"></span>
+                    <span class="text-xs px-1.5 py-0.5 bg-[var(--accent)] text-[var(--accent-contrast)] font-semibold" x-text="`${activeEvalRun.passed_cases}/${activeEvalRun.total_cases} PASS`"></span>
                   </div>
                 </div>
 
                 <!-- Card 2: Retrieval Hit Rate & MRR -->
-                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
-                  <div class="text-[11px] uppercase text-[#888888]">Retrieval Hit@K / MRR</div>
+                <div class="p-3.5 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                  <div class="text-[11px] uppercase text-[var(--text-muted)]">Retrieval Hit@K / MRR</div>
                   <div class="mt-1 flex items-baseline justify-between">
-                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.hit_rate * 100).toFixed(0)}%`"></span>
-                    <span class="text-xs text-[#888888]" x-text="`MRR: ${Number(activeEvalRun.summary.mrr || 0).toFixed(2)} · NDCG: ${Number(activeEvalRun.summary.ndcg || 0).toFixed(2)}`"></span>
+                    <span class="text-xl font-semibold text-[var(--text)]" x-text="`${(activeEvalRun.summary.hit_rate * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[var(--text-muted)]" x-text="`MRR: ${Number(activeEvalRun.summary.mrr || 0).toFixed(2)} · NDCG: ${Number(activeEvalRun.summary.ndcg || 0).toFixed(2)}`"></span>
                   </div>
                 </div>
 
                 <!-- Card 3: Context Recall & Precision -->
-                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
-                  <div class="text-[11px] uppercase text-[#888888]">Context Recall (Facts)</div>
+                <div class="p-3.5 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                  <div class="text-[11px] uppercase text-[var(--text-muted)]">Context Recall (Facts)</div>
                   <div class="mt-1 flex items-baseline justify-between">
-                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.context_recall * 100).toFixed(0)}%`"></span>
-                    <span class="text-xs text-[#888888]" x-text="`Prec: ${(activeEvalRun.summary.context_precision * 100).toFixed(0)}%`"></span>
+                    <span class="text-xl font-semibold text-[var(--text)]" x-text="`${(activeEvalRun.summary.context_recall * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[var(--text-muted)]" x-text="`Prec: ${(activeEvalRun.summary.context_precision * 100).toFixed(0)}%`"></span>
                   </div>
                 </div>
 
                 <!-- Card 4: ReAct Tool Routing -->
-                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
-                  <div class="text-[11px] uppercase text-[#888888]">ReAct Tool Routing</div>
+                <div class="p-3.5 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                  <div class="text-[11px] uppercase text-[var(--text-muted)]">ReAct Tool Routing</div>
                   <div class="mt-1 flex items-baseline justify-between">
-                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.tool_routing_accuracy * 100).toFixed(0)}%`"></span>
-                    <span class="text-xs text-[#888888]" x-text="`Budget: ${(activeEvalRun.summary.budget_compliance_rate * 100).toFixed(0)}%`"></span>
+                    <span class="text-xl font-semibold text-[var(--text)]" x-text="`${(activeEvalRun.summary.tool_routing_accuracy * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[var(--text-muted)]" x-text="`Budget: ${(activeEvalRun.summary.budget_compliance_rate * 100).toFixed(0)}%`"></span>
                   </div>
                 </div>
 
                 <!-- Card 5: Answer Faithfulness -->
-                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
-                  <div class="text-[11px] uppercase text-[#888888]">Answer Faithfulness</div>
+                <div class="p-3.5 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                  <div class="text-[11px] uppercase text-[var(--text-muted)]">Answer Faithfulness</div>
                   <div class="mt-1 flex items-baseline justify-between">
-                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.faithfulness * 100).toFixed(0)}%`"></span>
-                    <span class="text-xs text-[#888888]">Groundedness</span>
+                    <span class="text-xl font-semibold text-[var(--text)]" x-text="`${(activeEvalRun.summary.faithfulness * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[var(--text-muted)]">Groundedness</span>
                   </div>
                 </div>
 
                 <!-- Card 6: Answer Relevance -->
-                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
-                  <div class="text-[11px] uppercase text-[#888888]">Answer Relevance</div>
+                <div class="p-3.5 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                  <div class="text-[11px] uppercase text-[var(--text-muted)]">Answer Relevance</div>
                   <div class="mt-1 flex items-baseline justify-between">
-                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.answer_relevance * 100).toFixed(0)}%`"></span>
-                    <span class="text-xs text-[#888888]">Completeness</span>
+                    <span class="text-xl font-semibold text-[var(--text)]" x-text="`${(activeEvalRun.summary.answer_relevance * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[var(--text-muted)]">Completeness</span>
                   </div>
                 </div>
 
                 <!-- Card 7: Citation Accuracy -->
-                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
-                  <div class="text-[11px] uppercase text-[#888888]">Citation Accuracy</div>
+                <div class="p-3.5 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                  <div class="text-[11px] uppercase text-[var(--text-muted)]">Citation Accuracy</div>
                   <div class="mt-1 flex items-baseline justify-between">
-                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${(activeEvalRun.summary.citation_accuracy * 100).toFixed(0)}%`"></span>
-                    <span class="text-xs text-[#888888]">[Source] Tags</span>
+                    <span class="text-xl font-semibold text-[var(--text)]" x-text="`${(activeEvalRun.summary.citation_accuracy * 100).toFixed(0)}%`"></span>
+                    <span class="text-xs text-[var(--text-muted)]">[Source] Tags</span>
                   </div>
                 </div>
 
                 <!-- Card 8: Latency -->
-                <div class="p-3.5 border border-[#222222] bg-[#0A0A0A]">
-                  <div class="text-[11px] uppercase text-[#888888]">Avg Latency</div>
+                <div class="p-3.5 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                  <div class="text-[11px] uppercase text-[var(--text-muted)]">Avg Latency</div>
                   <div class="mt-1 flex items-baseline justify-between">
-                    <span class="text-xl font-semibold text-[#FFFFFF]" x-text="`${Number(activeEvalRun.summary.avg_total_latency_ms || 0).toFixed(1)}ms`"></span>
-                    <span class="text-xs text-[#888888]" x-text="`Ret: ${Number(activeEvalRun.summary.avg_retrieval_latency_ms || 0).toFixed(1)}ms`"></span>
+                    <span class="text-xl font-semibold text-[var(--text)]" x-text="`${Number(activeEvalRun.summary.avg_total_latency_ms || 0).toFixed(1)}ms`"></span>
+                    <span class="text-xs text-[var(--text-muted)]" x-text="`Ret: ${Number(activeEvalRun.summary.avg_retrieval_latency_ms || 0).toFixed(1)}ms`"></span>
                   </div>
                 </div>
               </div>
 
               <!-- Per-Case Breakdown Table -->
-              <div class="border border-[#222222] divide-y divide-[#222222]">
-                <div class="grid grid-cols-12 px-4 py-2.5 bg-[#0A0A0A] font-mono text-[11px] uppercase text-[#888888]">
+              <div class="border border-[var(--border)] divide-y divide-[var(--border)]">
+                <div class="grid grid-cols-12 px-4 py-2.5 bg-[var(--bg-elevated)] font-mono text-[11px] uppercase text-[var(--text-muted)]">
                   <div class="col-span-4">Test Case / Query</div>
                   <div class="col-span-2">Category</div>
                   <div class="col-span-1 text-center">Hit@K</div>
@@ -1412,27 +1428,27 @@
                 </div>
 
                 <template x-for="res in (activeEvalRun.results || [])" :key="res.case_id">
-                  <div class="bg-[#000000] font-mono text-xs">
+                  <div class="bg-[var(--bg)] font-mono text-xs">
                     <!-- Summary Row (Click to Expand Details) -->
                     <div
                       @click="toggleEvalCaseExpand(res.case_id)"
-                      class="grid grid-cols-12 items-center px-4 py-3 hover:bg-[#0A0A0A] cursor-pointer transition-colors"
+                      class="grid grid-cols-12 items-center px-4 py-3 hover:bg-[var(--bg-elevated)] cursor-pointer transition-colors"
                     >
                       <div class="col-span-4 pr-3 flex items-center gap-2 min-w-0">
-                        <span class="text-[#888888]" x-text="expandedEvalCases[res.case_id] ? '▼' : '▸'"></span>
-                        <span class="text-[#FFFFFF] truncate" x-text="res.question" :title="res.question"></span>
+                        <span class="text-[var(--text-muted)]" x-text="expandedEvalCases[res.case_id] ? '▼' : '▸'"></span>
+                        <span class="text-[var(--text)] truncate" x-text="res.question" :title="res.question"></span>
                       </div>
                       <div class="col-span-2">
-                        <span class="px-1.5 py-0.5 border border-[#333333] text-[#888888] text-[10px] uppercase" x-text="res.category"></span>
+                        <span class="px-1.5 py-0.5 border border-[var(--border-strong)] text-[var(--text-muted)] text-[10px] uppercase" x-text="res.category"></span>
                       </div>
-                      <div class="col-span-1 text-center text-[#CCCCCC]" x-text="`${Math.round(res.retrieval.hit_rate * 100)}%`"></div>
-                      <div class="col-span-1 text-center text-[#CCCCCC]" x-text="`${Math.round(res.retrieval.context_recall * 100)}%`"></div>
-                      <div class="col-span-1 text-center text-[#CCCCCC]" x-text="`${Math.round(res.generation.faithfulness * 100)}%`"></div>
-                      <div class="col-span-1 text-center text-[#CCCCCC]" x-text="`${Math.round(res.generation.answer_relevance * 100)}%`"></div>
-                      <div class="col-span-1 text-right font-semibold text-[#FFFFFF]" x-text="`${Math.round(res.case_score * 100)}%`"></div>
+                      <div class="col-span-1 text-center text-[var(--text-secondary)]" x-text="`${Math.round(res.retrieval.hit_rate * 100)}%`"></div>
+                      <div class="col-span-1 text-center text-[var(--text-secondary)]" x-text="`${Math.round(res.retrieval.context_recall * 100)}%`"></div>
+                      <div class="col-span-1 text-center text-[var(--text-secondary)]" x-text="`${Math.round(res.generation.faithfulness * 100)}%`"></div>
+                      <div class="col-span-1 text-center text-[var(--text-secondary)]" x-text="`${Math.round(res.generation.answer_relevance * 100)}%`"></div>
+                      <div class="col-span-1 text-right font-semibold text-[var(--text)]" x-text="`${Math.round(res.case_score * 100)}%`"></div>
                       <div class="col-span-1 text-right">
                         <span
-                          :class="res.passed ? 'bg-[#FFFFFF] text-[#000000] font-semibold' : 'border border-[#FFFFFF] text-[#FFFFFF]'"
+                          :class="res.passed ? 'bg-[var(--accent)] text-[var(--accent-contrast)] font-semibold' : 'border border-[var(--accent)] text-[var(--text)]'"
                           class="px-1.5 py-0.5 text-[10px] uppercase"
                           x-text="res.passed ? 'PASS' : 'FAIL'"
                         ></span>
@@ -1443,25 +1459,25 @@
                     <div
                       x-show="expandedEvalCases[res.case_id]"
                       x-cloak
-                      class="p-4 bg-[#0A0A0A] border-t border-[#141414] space-y-3 text-xs"
+                      class="p-4 bg-[var(--bg-elevated)] border-t border-[var(--border-subtle)] space-y-3 text-xs"
                     >
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div class="p-3 border border-[#222222] bg-[#000000]">
-                          <div class="text-[11px] uppercase text-[#888888] mb-1">Generated Response</div>
-                          <div class="text-[#FFFFFF] whitespace-pre-wrap leading-relaxed" x-text="res.generated_answer || '(Retrieval-only mode)'"></div>
+                        <div class="p-3 border border-[var(--border)] bg-[var(--bg)]">
+                          <div class="text-[11px] uppercase text-[var(--text-muted)] mb-1">Generated Response</div>
+                          <div class="text-[var(--text)] whitespace-pre-wrap leading-relaxed" x-text="res.generated_answer || '(Retrieval-only mode)'"></div>
                         </div>
-                        <div class="p-3 border border-[#222222] bg-[#000000] space-y-2">
+                        <div class="p-3 border border-[var(--border)] bg-[var(--bg)] space-y-2">
                           <div>
-                            <div class="text-[11px] uppercase text-[#888888] mb-1">Expected Reference & Facts</div>
-                            <div class="text-[#CCCCCC] leading-relaxed" x-text="res.expected_answer || '(N/A)'"></div>
+                            <div class="text-[11px] uppercase text-[var(--text-muted)] mb-1">Expected Reference & Facts</div>
+                            <div class="text-[var(--text-secondary)] leading-relaxed" x-text="res.expected_answer || '(N/A)'"></div>
                           </div>
                           <template x-if="res.expected_facts && res.expected_facts.length > 0">
-                            <div class="pt-2 border-t border-[#141414]">
-                              <span class="text-[#888888] uppercase text-[10px]">Expected Facts: </span>
+                            <div class="pt-2 border-t border-[var(--border-subtle)]">
+                              <span class="text-[var(--text-muted)] uppercase text-[10px]">Expected Facts: </span>
                               <div class="flex flex-wrap gap-1.5 mt-1">
                                 <template x-for="fact in res.expected_facts" :key="fact">
                                   <span
-                                    :class="(res.retrieval.matched_facts || []).includes(fact) ? 'bg-[#FFFFFF] text-[#000000] font-semibold' : 'border border-[#444444] text-[#888888]'"
+                                    :class="(res.retrieval.matched_facts || []).includes(fact) ? 'bg-[var(--accent)] text-[var(--accent-contrast)] font-semibold' : 'border border-[var(--border-muted)] text-[var(--text-muted)]'"
                                     class="px-1.5 py-0.5 text-[11px]"
                                     x-text="`${(res.retrieval.matched_facts || []).includes(fact) ? '✓ ' : '✗ '}${fact}`"
                                   ></span>
@@ -1473,35 +1489,35 @@
                       </div>
 
                       <!-- Metrics & ReAct Trace Metadata Bar -->
-                      <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border border-[#222222] bg-[#000000] text-[11px] text-[#888888]">
+                      <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border border-[var(--border)] bg-[var(--bg)] text-[11px] text-[var(--text-muted)]">
                         <div>
-                          <span>MRR: <strong class="text-[#FFFFFF]" x-text="res.retrieval.mrr"></strong></span>
+                          <span>MRR: <strong class="text-[var(--text)]" x-text="res.retrieval.mrr"></strong></span>
                           <span class="mx-2">·</span>
-                          <span>NDCG: <strong class="text-[#FFFFFF]" x-text="res.retrieval.ndcg"></strong></span>
+                          <span>NDCG: <strong class="text-[var(--text)]" x-text="res.retrieval.ndcg"></strong></span>
                           <span class="mx-2">·</span>
-                          <span>Tool Routing: <strong class="text-[#FFFFFF]" x-text="res.did_retrieve ? 'RETRIEVED' : 'DIRECT'"></strong> (Expected: <span x-text="res.expect_retrieval ? 'RETRIEVED' : 'DIRECT'"></span>)</span>
+                          <span>Tool Routing: <strong class="text-[var(--text)]" x-text="res.did_retrieve ? 'RETRIEVED' : 'DIRECT'"></strong> (Expected: <span x-text="res.expect_retrieval ? 'RETRIEVED' : 'DIRECT'"></span>)</span>
                           <span class="mx-2">·</span>
-                          <span>RAG Tokens: <strong class="text-[#FFFFFF]" x-text="res.retrieval.rag_tokens"></strong></span>
+                          <span>RAG Tokens: <strong class="text-[var(--text)]" x-text="res.retrieval.rag_tokens"></strong></span>
                         </div>
                         <div>
                           <span x-text="res.generation.judge_rationale"></span>
                           <span class="mx-2">·</span>
-                          <span class="text-[#FFFFFF]" x-text="`${res.total_latency_ms}ms`"></span>
+                          <span class="text-[var(--text)]" x-text="`${res.total_latency_ms}ms`"></span>
                         </div>
                       </div>
 
                       <!-- Retrieved Chunks List -->
                       <template x-if="res.retrieved_chunks && res.retrieved_chunks.length > 0">
                         <div class="space-y-1.5">
-                          <div class="text-[11px] uppercase text-[#888888]">Retrieved LanceDB Chunks (<span x-text="res.retrieved_chunks.length"></span>)</div>
+                          <div class="text-[11px] uppercase text-[var(--text-muted)]">Retrieved LanceDB Chunks (<span x-text="res.retrieved_chunks.length"></span>)</div>
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                             <template x-for="(ch, cIdx) in res.retrieved_chunks" :key="cIdx">
-                              <div class="p-2.5 border border-[#222222] bg-[#000000]">
+                              <div class="p-2.5 border border-[var(--border)] bg-[var(--bg)]">
                                 <div class="flex items-center justify-between text-[11px] mb-1">
-                                  <span class="text-[#FFFFFF] font-semibold truncate" x-text="`#${cIdx + 1} ${ch.source_name} (chunk ${ch.chunk_index})`"></span>
-                                  <span class="text-[#888888] shrink-0" x-text="`score: ${ch.hybrid_score} · sim: ${ch.similarity}`"></span>
+                                  <span class="text-[var(--text)] font-semibold truncate" x-text="`#${cIdx + 1} ${ch.source_name} (chunk ${ch.chunk_index})`"></span>
+                                  <span class="text-[var(--text-muted)] shrink-0" x-text="`score: ${ch.hybrid_score} · sim: ${ch.similarity}`"></span>
                                 </div>
-                                <div class="text-[11px] text-[#888888] line-clamp-2" x-text="ch.preview"></div>
+                                <div class="text-[11px] text-[var(--text-muted)] line-clamp-2" x-text="ch.preview"></div>
                               </div>
                             </template>
                           </div>
@@ -1516,10 +1532,10 @@
 
           <!-- Empty State when no evaluation has been run yet -->
           <template x-if="!activeEvalRun && !isRunningEval">
-            <div class="p-10 border border-[#222222] bg-[#0A0A0A] text-center space-y-3 font-mono">
-              <div class="text-sm uppercase text-[#FFFFFF]">No Evaluation Scorecard Loaded</div>
-              <div class="text-xs text-[#888888] max-w-lg mx-auto leading-relaxed">
-                Click <span class="text-[#FFFFFF]">▶ Run Evaluation</span> above to benchmark LanceDB hybrid retrieval (Hit Rate@K, MRR, NDCG, Context Recall) and the ReAct Agent (Tool Routing, Faithfulness, Answer Relevance, Citations).
+            <div class="p-10 border border-[var(--border)] bg-[var(--bg-elevated)] text-center space-y-3 font-mono">
+              <div class="text-sm uppercase text-[var(--text)]">No Evaluation Scorecard Loaded</div>
+              <div class="text-xs text-[var(--text-muted)] max-w-lg mx-auto leading-relaxed">
+                Click <span class="text-[var(--text)]">▶ Run Evaluation</span> above to benchmark LanceDB hybrid retrieval (Hit Rate@K, MRR, NDCG, Context Recall) and the ReAct Agent (Tool Routing, Faithfulness, Answer Relevance, Citations).
               </div>
             </div>
           </template>

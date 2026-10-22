@@ -338,30 +338,30 @@ window.RagModules.chat = {
 
     html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, language, code) => {
       const badge = language
-        ? `<div class="text-xs font-mono uppercase tracking-wider px-3.5 py-1.5 border-b border-[#222222] text-[#888888]">${language}</div>`
+        ? `<div class="text-xs font-mono uppercase tracking-wider px-3.5 py-1.5 border-b border-[var(--border)] text-[var(--text-muted)]">${language}</div>`
         : "";
-      return `<div class="my-3.5 border border-[#333333] bg-[#050505] overflow-x-auto">${badge}<pre class="p-3.5 text-sm font-mono leading-relaxed"><code>${code.trim()}</code></pre></div>`;
+      return `<div class="my-3.5 border border-[var(--border-strong)] bg-[var(--bg-elevated)] overflow-x-auto">${badge}<pre class="p-3.5 text-sm font-mono leading-relaxed"><code>${code.trim()}</code></pre></div>`;
     });
 
     html = html.replace(
       /`([^`]+)`/g,
-      '<code class="px-1.5 py-0.5 text-sm font-mono border border-[#333333] bg-[#141414]">$1</code>'
+      '<code class="px-1.5 py-0.5 text-sm font-mono border border-[var(--border-strong)] bg-[var(--bg-hover)]">$1</code>'
     );
 
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>');
     html = html.replace(
       /(^|[\s(])\*([^\s*][^*]*?)\*(?=[\s).,!?:;]|$)/g,
-      '$1<em class="italic text-[#BBBBBB]">$2</em>'
+      '$1<em class="italic text-[var(--text-secondary)]">$2</em>'
     );
 
     html = html.replace(
       /^&gt;\s?(.*)$/gm,
-      '<blockquote class="border-l-2 border-white pl-3.5 py-0.5 my-2 text-[#AAAAAA]">$1</blockquote>'
+      '<blockquote class="border-l-2 border-[var(--accent)] pl-3.5 py-0.5 my-2 text-[var(--text-muted)]">$1</blockquote>'
     );
 
     html = html.replace(
       /\[([a-zA-Z0-9_.\-/]+\.(?:pdf|txt|md|html)|https?:\/\/[^\]]+)\]/gi,
-      '<span class="inline-block px-1.5 py-0.5 text-xs font-mono border border-white bg-white text-black font-medium">[$1]</span>'
+      '<span class="inline-block px-1.5 py-0.5 text-xs font-mono border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)] font-medium">[$1]</span>'
     );
 
     html = html.replace(/\n\n/g, "</p><p class='mt-3'>");

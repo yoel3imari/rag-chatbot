@@ -10,6 +10,92 @@ window.RagModules.state = {
   memories: [],
   providers: [],
   embeddingModels: [],
+  themes: [
+    {
+      id: "brutal-dark",
+      label: "Brutal Dark",
+      description: "High-contrast monochrome",
+      dark: true,
+      swatches: ["#000000", "#141414", "#FFFFFF", "#888888"],
+    },
+    {
+      id: "brutal-light",
+      label: "Brutal Light",
+      description: "Hard-edged monochrome",
+      dark: false,
+      swatches: ["#FFFFFF", "#ECECEC", "#000000", "#666666"],
+    },
+    {
+      id: "github-dark",
+      label: "GitHub Dark",
+      description: "GitHub's dark canvas",
+      dark: true,
+      swatches: ["#0D1117", "#21262D", "#E6EDF3", "#1F6FEB"],
+    },
+    {
+      id: "github-light",
+      label: "GitHub Light",
+      description: "GitHub's light canvas",
+      dark: false,
+      swatches: ["#FFFFFF", "#EAEEF2", "#1F2328", "#0969DA"],
+    },
+    {
+      id: "chatgpt",
+      label: "ChatGPT",
+      description: "Charcoal & signature green",
+      dark: true,
+      swatches: ["#212121", "#383838", "#F3F3F3", "#10A37F"],
+    },
+    {
+      id: "claude",
+      label: "Claude",
+      description: "Warm parchment & terracotta",
+      dark: false,
+      swatches: ["#FAF9F5", "#E8E5DA", "#1F1E1D", "#D97757"],
+    },
+    {
+      id: "claude-dark",
+      label: "Claude Dark",
+      description: "Warm charcoal & terracotta",
+      dark: true,
+      swatches: ["#1F1E1D", "#30302E", "#F5F4EF", "#D97757"],
+    },
+    {
+      id: "tokyo-night",
+      label: "Tokyo Night",
+      description: "Neon midnight blues",
+      dark: true,
+      swatches: ["#1A1B26", "#292E42", "#C0CAF5", "#7AA2F7"],
+    },
+    {
+      id: "nord",
+      label: "Nord",
+      description: "Arctic blues & frost",
+      dark: true,
+      swatches: ["#2E3440", "#434C5E", "#ECEFF4", "#88C0D0"],
+    },
+    {
+      id: "one-dark",
+      label: "One Dark",
+      description: "Atom's classic palette",
+      dark: true,
+      swatches: ["#282C34", "#2C313A", "#ABB2BF", "#61AFEF"],
+    },
+    {
+      id: "dracula",
+      label: "Dracula",
+      description: "Purple-tinted midnight",
+      dark: true,
+      swatches: ["#282A36", "#44475A", "#F8F8F2", "#BD93F9"],
+    },
+    {
+      id: "catppuccin-mocha",
+      label: "Catppuccin",
+      description: "Soothing pastel dark",
+      dark: true,
+      swatches: ["#1E1E2E", "#313244", "#CDD6F4", "#CBA6F7"],
+    },
+  ],
   settings: {
     provider: "openrouter",
     api_key: "",
@@ -25,7 +111,7 @@ window.RagModules.state = {
     top_k: 5,
     similarity_threshold: 0.15,
     dedup_threshold: 0.92,
-    theme: "dark",
+    theme: "brutal-dark",
     compaction_mode: "Auto-Summarize",
     max_context_tokens: 8192,
     reserved_output_tokens: 2048,
@@ -132,6 +218,13 @@ window.RagModules.state = {
         name: "Custom",
         models: [],
       }
+    );
+  },
+
+  get activeTheme() {
+    return (
+      this.themes.find((theme) => theme.id === this.settings.theme) ||
+      this.themes[0]
     );
   },
 

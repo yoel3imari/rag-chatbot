@@ -2,13 +2,9 @@
 
 #### 1. Design System & Tokens
 
-* **Aesthetic:** Minimalist, high-contrast monochrome (Swiss/Brutalist modern).
-* **Geometry:** Strictly `0px` border-radius (`rounded-none`) across all elements—buttons, inputs, modals, cards, and scrollbars.
-* **Color Palette:**
-* **Backgrounds:** Primary `#000000` (or `#FFFFFF` for light mode), Secondary/Surface `#0A0A0A`, Elevated/Hover `#141414`.
-* **Text:** Primary `#FFFFFF`, Secondary/Muted `#888888`, Disabled `#444444`.
-* **Borders:** `1px solid #222222` (Default), `1px solid #FFFFFF` (Active/Focus).
-* **Accents:** Pure inverted contrast (White background with black text for primary actions). Destructive actions use high-contrast inversion or a stark monochrome warning state.
+* **Aesthetic:** Minimalist, high-contrast monochrome Swiss/Brutalist design as the default theme, with a built-in theme switcher for signature dark/light palettes (GitHub, ChatGPT, Claude, Tokyo Night, Nord, One Dark, Dracula, Catppuccin, etc.).
+* **Geometry:** Default theme uses strictly `0px` border-radius; the active theme controls the global radius token (some signature themes use soft corners).
+* **Color Palette:** Semantic CSS custom properties (`--bg`, `--bg-elevated`, `--border`, `--text`, `--text-muted`, `--accent`, etc.) defined per theme in [`static/css/themes.css`](./static/css/themes.css). The default palette maps to: backgrounds `#000000` / `#0A0A0A` / `#141414`, text `#FFFFFF` / `#888888` / `#444444`, borders `#222222`, and inverted white-on-black accents.
 
 
 * **Typography:** Clean Neo-Grotesque sans-serif (`Inter` or `Geist`) for UI; monospace (`JetBrains Mono` or `Geist Mono`) for Model IDs, URLs, file metadata, and code blocks.
@@ -98,7 +94,7 @@ A full-viewport application layout (`100vw`, `100vh`, `overflow-hidden`) divided
 ##### Tab 4: General & Data (Related Settings)
 
 * **Retrieval Settings:** Top-K chunks slider (`1–20`), Similarity threshold input (`0.0–1.0`).
-* **Appearance:** High-contrast Dark / Light mode toggle (strictly inverting `#000000` and `#FFFFFF`).
+* **Appearance:** Theme picker with 12 built-in palettes — Brutal Dark/Light, GitHub Dark/Light, ChatGPT, Claude/Claude Dark, Tokyo Night, Nord, One Dark, Dracula, and Catppuccin. Switching applies instantly, persists to settings/localStorage, and is available in Settings → General or from the header theme button.
 * **Data Management:**
 * `"Export Chat History (.JSON)"` button.
 * `"Clear All Sessions"` button (requires two-click confirmation).

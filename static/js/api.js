@@ -3,6 +3,7 @@ window.RagModules = window.RagModules || {};
 window.RagModules.api = {
   async init() {
     this._loadFromLocalCache();
+    this.applyTheme();
     this._initTokenWorker();
 
     await Promise.all([
@@ -110,6 +111,7 @@ window.RagModules.api = {
     if (response.ok) {
       const data = await response.json();
       this.settings = { ...this.settings, ...data, api_key: "" };
+      this.applyTheme();
       this._saveToLocalCache();
     }
   },
@@ -167,7 +169,35 @@ window.RagModules.api = {
   },
 
   toggleTheme() {
-    this.settings.theme = this.settings.theme === "light" ? "dark" : "light";
-    this.saveSettings();
+    this.setTheme(this.activeTheme.dark ? "brutal-light" : "brutal-dark");
+  },
+
+  _normalizeThemeId(themeId) {
+    // Backwards compatibility with the original "dark" / "light" setting.
+    const legacyThemeIds = { dark: "brutal-dark", light: "brutal-light" };
+    const candidate = legacyThemeIds[themeId] || themeId;
+    return this.themes.some((theme) => theme.id === candidate)
+      ? candidate
+      : "brutal-dark";
+  },
+
+  applyTheme(themeId = this.settings.theme) {
+    const id = this._normalizeThemeId(themeId);
+    const definition =
+      this.themes.find((theme) => theme.id === id) || this.themes[0];
+
+    this.settings.theme = definition.id;
+    document.documentElement.setAttribute("data-theme", definition.id);
+    document.documentElement.classList.toggle("dark", Boolean(definition.dark));
+  },
+
+  setTheme(themeId) {
+    const id = this._normalizeThemeId(themeId);
+    const changed = this.settings.theme !== id;
+    this.applyTheme(id);
+    if (changed) {
+      this._saveToLocalCache();
+      this.saveSettings();
+    }
   },
 };

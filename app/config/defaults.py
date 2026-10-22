@@ -24,7 +24,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "top_k": 5,
     "similarity_threshold": 0.15,
     "dedup_threshold": 0.92,
-    "theme": "dark",
+    "theme": "brutal-dark",
     "compaction_mode": "Auto-Summarize",  # Sliding Window | Auto-Summarize | Strict Truncation
     "max_context_tokens": 8192,
     "reserved_output_tokens": 2048,
