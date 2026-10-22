@@ -59,6 +59,26 @@
     [x-cloak] {
       display: none !important;
     }
+
+    /* Settings tab indicator: centered 50% underline so theme radii never
+       curve the active marker. */
+    .settings-tab {
+      position: relative;
+    }
+    .settings-tab::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 50%;
+      height: 2px;
+      transform: translateX(-50%);
+      background: transparent;
+      pointer-events: none;
+    }
+    .settings-tab--active::after {
+      background: var(--accent);
+    }
   </style>
 </head>
 <body
@@ -172,24 +192,6 @@
             :class="settings.has_api_key || ['ollama','lmstudio','custom'].includes(settings.provider) ? 'bg-[var(--accent)]' : 'border border-[var(--border-muted)]'"
             :title="settings.has_api_key ? 'API Key Configured' : 'No API Key Set (Click to configure)'"
           ></span>
-        </button>
-        <button
-          @click="openEvaluationTab()"
-          class="font-mono text-xs px-2.5 py-1 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] text-[var(--text-muted)] hover:text-[var(--text)] flex items-center gap-1.5 uppercase"
-          title="Open RAG & ReAct Evaluation Suite"
-        >
-          <span>Eval</span>
-          <template x-if="activeEvalRun">
-            <span class="text-[var(--text)] font-semibold" x-text="`${Math.round((activeEvalRun.overall_score || 0) * 100)}%`"></span>
-          </template>
-        </button>
-        <button
-          @click="settingsOpen = true; activeSettingsTab = 'general'"
-          class="w-8 h-8 shrink-0 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)]"
-          :title="`Theme: ${activeTheme.label} — click to change`"
-          aria-label="Change theme"
-        >
-          <span class="w-3.5 h-3.5 border border-[var(--border-muted)]" :style="`background: ${activeTheme.swatches[3]}`"></span>
         </button>
       </div>
 
@@ -317,27 +319,27 @@
           <div class="border border-[var(--border)] bg-[var(--bg-elevated)] p-7 my-8">
             <div class="border-b border-[var(--border)] pb-4 mb-5">
               <h1 class="text-lg font-semibold text-[var(--text)]">How can I help you today?</h1>
-              <p class="text-sm text-[var(--text-muted)] mt-1">Ask questions across your documents and web sources, or type <span class="font-mono text-[var(--text)]">@</span> to filter by a specific source.</p>
+              <p class="text-sm text-[var(--text-muted)] mt-1">Ask questions across your documents and web sources, or type <span class="font-mono text-[var(--text)]">@</span> to target a specific source.</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-sm">
               <button
-                @click="promptText = 'What is Acme Corp\'s remote work stipend and PTO policy?'; $nextTick(() => sendMessage())"
+                @click="promptText = 'Summarize the key points in my documents.'; $nextTick(() => sendMessage())"
                 class="text-left p-4 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] transition-colors leading-relaxed text-[var(--text-secondary)]"
               >
-                What is Acme Corp's remote work stipend and PTO policy?
+                Summarize the key points in my documents.
               </button>
               <button
-                @click="promptText = '@acme-handbook-2026.md What are the SEV-1 SLA and deployment freeze rules?'; targetDocs = ['acme-handbook-2026.md']; $nextTick(() => sendMessage())"
+                @click="promptText = 'What topics are covered in my knowledge base?'; $nextTick(() => sendMessage())"
                 class="text-left p-4 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] transition-colors leading-relaxed text-[var(--text-secondary)]"
               >
-                @acme-handbook-2026.md What are the SEV-1 SLA rules?
+                What topics are covered in my knowledge base?
               </button>
               <button
-                @click="promptText = 'Summarize our engineering deployment and incident response guidelines.'; $nextTick(() => sendMessage())"
+                @click="promptText = 'Find and compare relevant information across my sources.'; $nextTick(() => sendMessage())"
                 class="text-left p-4 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] transition-colors leading-relaxed text-[var(--text-secondary)]"
               >
-                Summarize our engineering deployment and incident response guidelines.
+                Find and compare relevant information across my sources.
               </button>
             </div>
           </div>
@@ -663,43 +665,43 @@
       <nav class="flex border-b border-[var(--border)] bg-[var(--bg-elevated)] shrink-0 overflow-x-auto font-mono text-xs uppercase">
         <button
           @click="activeSettingsTab = 'llm'"
-          :class="activeSettingsTab === 'llm' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
-          class="px-5 py-3.5 whitespace-nowrap"
+          :class="activeSettingsTab === 'llm' ? 'settings-tab--active text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+          class="settings-tab px-5 py-3.5 whitespace-nowrap"
         >
           LLM
         </button>
         <button
           @click="activeSettingsTab = 'docs'"
-          :class="activeSettingsTab === 'docs' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
-          class="px-5 py-3.5 whitespace-nowrap"
+          :class="activeSettingsTab === 'docs' ? 'settings-tab--active text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+          class="settings-tab px-5 py-3.5 whitespace-nowrap"
         >
           Documents (<span x-text="fileDocuments.length"></span>)
         </button>
         <button
           @click="activeSettingsTab = 'urls'"
-          :class="activeSettingsTab === 'urls' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
-          class="px-5 py-3.5 whitespace-nowrap"
+          :class="activeSettingsTab === 'urls' ? 'settings-tab--active text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+          class="settings-tab px-5 py-3.5 whitespace-nowrap"
         >
           Web Sources (<span x-text="urlDocuments.length"></span>)
         </button>
         <button
           @click="activeSettingsTab = 'general'"
-          :class="activeSettingsTab === 'general' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
-          class="px-5 py-3.5 whitespace-nowrap"
+          :class="activeSettingsTab === 'general' ? 'settings-tab--active text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+          class="settings-tab px-5 py-3.5 whitespace-nowrap"
         >
           General & Data
         </button>
         <button
           @click="activeSettingsTab = 'memory'"
-          :class="activeSettingsTab === 'memory' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
-          class="px-5 py-3.5 whitespace-nowrap"
+          :class="activeSettingsTab === 'memory' ? 'settings-tab--active text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+          class="settings-tab px-5 py-3.5 whitespace-nowrap"
         >
           Context & Memory (<span x-text="memories.length"></span>)
         </button>
         <button
           @click="activeSettingsTab = 'eval'; fetchEvalRuns()"
-          :class="activeSettingsTab === 'eval' ? 'border-b-2 border-b-[var(--accent)] text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
-          class="px-5 py-3.5 whitespace-nowrap"
+          :class="activeSettingsTab === 'eval' ? 'settings-tab--active text-[var(--text)] bg-[var(--bg)] font-semibold' : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+          class="settings-tab px-5 py-3.5 whitespace-nowrap"
         >
           Evaluation (<span x-text="evalRuns.length"></span>)
         </button>
